@@ -2,7 +2,7 @@
 %test = HiRoLab.newTest();
 
 %% Load file
-test = HiRoLab.loadTest();
+%test = HiRoLab.loadTest();
 
 %% Pre-process the raw data
 [tblCam, t0Cam, fCam] = HiRoLab.readCSV( test.csvFile );

@@ -30,10 +30,11 @@ classdef HiRoLab
                 error('Didnt pick two files')
             end
 
-            h = HiRoLab.readCSVHeader( [pathname filename{1}] );
+            h = HiRoLab.readCSVHeader( csvFile );
 
             answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
-
+            answer = regexprep( answer, ',', '' ); % comma is not allowed
+            
             subject = answer{1};
             comments = answer{2};
             plateIndex = str2num( answer{3} );
