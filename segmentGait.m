@@ -5,13 +5,13 @@ saw = detrend(cumsum(z1+z2+z3+z4));
 
 stanceSize = 2*round( mean( indexEnd-indexInit )/2 ); % number of samples per stance
 stanceInit = round( (indexEnd+indexInit)/2 ) - stanceSize/2; % index of beginning of stance
-stanceNumber = length( gaitInit ); % number of gaits cycles
+stanceNumber = length( stanceInit ); % number of gaits cycles
 
-rows = bsxfun( @plus, 1:stanceSize, gaitInit )'; % during stances
+rows = bsxfun( @plus, 1:stanceSize, stanceInit )'; % during stances
 
 % reshape to 3D matrix
-anglesCrop = reshape( angles(rows,:)', [3 stanceSize gaitNumber] );
-torquesCrop = reshape( torques(rows,:)', [3 stanceSize gaitNumber] );
+anglesCrop = reshape( angles(rows,:)', [3 stanceSize stanceNumber] );
+torquesCrop = reshape( torques(rows,:)', [3 stanceSize stanceNumber] );
 
 % remove average
 anglesSeg = bsxfun( @plus, anglesCrop, -mean(anglesCrop,2) );

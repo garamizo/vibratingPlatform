@@ -1,30 +1,8 @@
-%% UI
-%{
-[filename, pathname] = uigetfile('*.csv;*.lvm', 'Browse the camera system (CSV) and LabVIEW (LVM) file.', 'MultiSelect', 'on');
+%% Create new experimental file entry
+test = HiRoLab.newTest();
 
-subject = 'Mockup 2';
-comments = 'IE pulse with springs higher amplitude';
-csvFile = 'C:\Users\rastgaar\Desktop\may18\Take 2015-05-18 03.10.10 PM.csv';
-lvmFile = 'C:\Users\rastgaar\Desktop\may18\raw_8.lvm';
-plateIndex = 3;
-rSheenIndex = 10;
-rFootIndex = 3;
-offsetPlate = -HiRoLab.centroid4Markers;
-outputFile = 'C:\Users\rastgaar\Desktop\may18\results1.mat';
-
-comments( comments == ',' ) = [];
-
-fid = fopen( 'vibratingPlatformReference.csv', 'a+' );
-
-fprintf( fid, '%s, %s, %s, %s, %d, %d, %d, %f, %f, %f, %s\n', subject, comments, ...
-    csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, offsetPlate(1), ...
-    offsetPlate(2), offsetPlate(3), outputFile );
-
-fclose(fid);
-%}
-
-%% Load test file
-test = test1;
+%% Load file
+test = HiRoLab.loadTest();
 
 %% Pre-process the raw data
 [tblCam, t0Cam, fCam] = HiRoLab.readCSV( test.csvFile );

@@ -11,19 +11,103 @@ classdef HiRoLab
     end
     
     methods(Static)
-        function [tbl, timestamp0, f] = readCSV( csvPath )
+        
+        function test = newTest()
+            
+            [filename, pathname] = uigetfile('*.csv;*.lvm', 'Browse the camera system (CSV) and LabVIEW (LVM) file.', 'MultiSelect', 'on');
 
-            fid = fopen(csvPath);
-            tline = fgets(fid);
-            tmp = strsplit( tline, ',' );
-            date2 = tmp{10};
+            if strcmp( class(filename), 'cell' ) && length(filename) == 2
+                if strcmp( lower(filename{1}(end-3:end)), '.csv' ) && strcmp( lower(filename{2}(end-3:end)), '.lvm' )
+                    csvFile = [pathname filename{1}];
+                    lvmFile = [pathname filename{2}];
+                elseif strcmp( lower(filename{2}(end-3:end)), '.csv' ) && strcmp( lower(filename{1}(end-3:end)), '.lvm' )
+                    csvFile = [pathname filename{2}];
+                    lvmFile = [pathname filename{1}];
+                else
+                    error('Wrong file types')
+                end
+            else
+                error('Didnt pick two files')
+            end
+
+            h = HiRoLab.readCSVHeader( [pathname filename{1}] );
+
+            answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
+
+            subject = answer{1};
+            comments = answer{2};
+            plateIndex = str2num( answer{3} );
+            rSheenIndex = str2num( answer{4} );
+            rFootIndex = str2num( answer{5} );
+            offsetPlate = -HiRoLab.centroid4Markers;
+
+            fid = fopen( 'vibratingPlatformReference.csv', 'a+' );
+
+            fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject '|' h.TakeName], ...
+                subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
+                offsetPlate(1), offsetPlate(2), offsetPlate(3) );
+
+            fclose(fid);
+
+            test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
+                'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
+                'offsetPlate', offsetPlate );
+        end
+        
+        function test = loadTest()
+            
+            tbl = readtable('vibratingPlatformReference.csv', 'HeaderLines', 0);
+
+            [index,v] = listdlg('PromptString','Select a file:',...
+                            'SelectionMode','single',...
+                            'ListString',tbl.test, ...
+                            'ListSize', [300 300]);
+
+            if v == 1
+                csvFile = tbl.csvFile(index);
+                lvmFile = tbl.lvmFile(index);
+                subject = tbl.subject(index);
+                comments = tbl.comments(index);
+                plateIndex = tbl.plateIndex(index);
+                rSheenIndex = tbl.rSheenIndex(index);
+                rFootIndex = tbl.rFootIndex(index);
+                offsetPlate = [tbl.offsetPlateX(index) tbl.offsetPlateY(index) tbl.offsetPlateZ(index)];
+
+                test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
+                    'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
+                    'offsetPlate', offsetPlate );
+            else
+                error('File not selected')
+            end
+        end
+        
+        function [tbl, timestamp0, f] = readCSV( csvFile )
+
+            header = HiRoLab.readCSVHeader( csvFile );
+            date2 = header.CaptureStartTime;
             dateMask = [0 0 0 60*60 60 1];
             % mod to fix noon singularity
             timestamp0 = mod( datevec(date2, 'yyyy-mm-dd HH.MM.SS.FFF PM') * dateMask', 12*60*60 );
-            f = str2double( tmp{6} );
-            fclose(fid);
+            f = header.ExportFrameRate;
 
-            tbl = readtable(csvPath, 'HeaderLines', 6);
+            tbl = readtable(csvFile, 'HeaderLines', 6);
+        end
+        
+        function header = readCSVHeader( csvFile )
+            
+            fid = fopen(csvFile);
+            tline = fgets(fid);
+            tmp = strsplit( tline, ',' );
+            
+            header.FormatVersion = str2double( tmp{2} );
+            header.TakeName = tmp{4};
+            header.CaptureFrameRate = str2double( tmp{6} );
+            header.ExportFrameRate = str2double( tmp{8} );
+            header.CaptureStartTime = tmp{10};
+            header.TotalFrames = str2double( tmp{12} );
+            header.RotationType = tmp{14};
+
+            fclose(fid);
         end
 
         function tbl = removeNaN( tbl, varargin )
