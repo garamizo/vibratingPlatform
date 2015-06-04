@@ -1,2 +1,3 @@
 test,subject,comments,csvFile,lvmFile,plateIndex,rSheenIndex,rFootIndex,offsetPlateX,offsetPlateY,offsetPlateZ
 Evandro|Take 2015-06-02 12.10.29 AM, Evandro, First try walking, /home/garamizo/Documents/MATLAB/vibratingPlatform/sample data files/stance/Take 2015-06-02 12.10.29 AM.csv, /home/garamizo/Documents/MATLAB/vibratingPlatform/sample data files/stance/raw_1.lvm, 47, 3, 25, 0.033625, 0.000653, -0.000157
+Evandro | Take 2015-06-02 12.10.29 AM | first stance test, Evandro, first stance test, /home/garamizo/Documents/MATLAB/vibratingPlatform/sample data files/stance/Take 2015-06-02 12.10.29 AM.csv, /home/garamizo/Documents/MATLAB/vibratingPlatform/sample data files/stance/raw_1.lvm, 47, 3, 25, 0.033625, 0.000653, -0.000157

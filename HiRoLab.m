@@ -43,7 +43,7 @@ classdef HiRoLab
 
             fid = fopen( 'vibratingPlatformReference.csv', 'a+' );
 
-            fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject '|' h.TakeName], ...
+            fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject ' | ' h.TakeName ' | ' comments], ...
                 subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
                 offsetPlate(1), offsetPlate(2), offsetPlate(3) );
 
@@ -61,7 +61,7 @@ classdef HiRoLab
             [index,v] = listdlg('PromptString','Select a file:',...
                             'SelectionMode','single',...
                             'ListString',tbl.test, ...
-                            'ListSize', [300 300]);
+                            'ListSize', [600 300]);
 
             if v == 1
                 csvFile = tbl.csvFile(index);
@@ -164,6 +164,10 @@ classdef HiRoLab
             % absolute time
             ta = t0a + ( 0:size(tbla,1)-1 ) / fa;
             tb = t0b + ( 0:size(tblb,1)-1 ) / fb;
+            
+            if ta(1) > tb(end) || ta(end) < tb(1)
+                error('Files are time incompatible')
+            end
 
             factor = round( fb / fa );
 
@@ -211,7 +215,10 @@ classdef HiRoLab
             Y = -( reshape( Pa', [3*N 1] ) - reshape( Pb', [3*N 1] ) );
             rs = A \ Y;
             
-            mdl = fitlm(A, Y)
+            mdl = fitlm(A, Y);
+            if mdl.Rsquared.Adjusted < 0.8
+                error('Ankle point badly estimated');
+            end
 
             ra = rs(1:3); % common point from frame 1
             rb = rs(4:6); % common point from frame 2

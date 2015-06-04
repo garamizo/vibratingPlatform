@@ -1,5 +1,5 @@
 %% Create new experimental file entry
-test = HiRoLab.newTest();
+%test = HiRoLab.newTest();
 
 %% Load file
 test = HiRoLab.loadTest();
