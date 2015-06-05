@@ -30,11 +30,7 @@ classdef ZTools
                 error('Didnt pick two files')
             end
 
-<<<<<<< HEAD:ZTools.m
-            h = ZTools.readCSVHeader( [pathname filename{1}] );
-=======
-            h = HiRoLab.readCSVHeader( csvFile );
->>>>>>> refs/remotes/origin/master:HiRoLab.m
+            h = ZTools.readCSVHeader( csvFile );
 
             answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
             answer = regexprep( answer, ',', '' ); % comma is not allowed
@@ -137,6 +133,17 @@ classdef ZTools
                 end
             end
         end
+        
+        function yFill = fillGaps( y, threshold )
+        % FILLGAPS interpolates the NaNs 
+        % based of http://www.mathworks.com/matlabcentral/answers/11846-identifying-gaps-in-time-series-data
+            n = find( all(~isnan(y), 2) );
+            gap = [0; diff( n )-1];
+            idx = n( gap <= threshold & gap > 0 );
+            gap( idx )
+            
+            yFill = 0;
+        end
 
         function [tbl, timestamp0, f] = readLVM( fileName )
 
@@ -221,6 +228,7 @@ classdef ZTools
             rs = A \ Y;
             
             mdl = fitlm(A, Y);
+            disp(['R^2 = ' num2str(mdl.Rsquared.Adjusted)])
             if mdl.Rsquared.Adjusted < 0.8
                 error('Ankle point badly estimated');
             end
