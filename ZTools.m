@@ -1,4 +1,4 @@
-classdef HiRoLab
+classdef ZTools
     %UNTITLED2 Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -30,7 +30,7 @@ classdef HiRoLab
                 error('Didnt pick two files')
             end
 
-            h = HiRoLab.readCSVHeader( [pathname filename{1}] );
+            h = ZTools.readCSVHeader( [pathname filename{1}] );
 
             answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
 
@@ -39,7 +39,7 @@ classdef HiRoLab
             plateIndex = str2num( answer{3} );
             rSheenIndex = str2num( answer{4} );
             rFootIndex = str2num( answer{5} );
-            offsetPlate = -HiRoLab.centroid4Markers;
+            offsetPlate = -ZTools.centroid4Markers;
 
             fid = fopen( 'vibratingPlatformReference.csv', 'a+' );
 
@@ -83,7 +83,7 @@ classdef HiRoLab
         
         function [tbl, timestamp0, f] = readCSV( csvFile )
 
-            header = HiRoLab.readCSVHeader( csvFile );
+            header = ZTools.readCSVHeader( csvFile );
             date2 = header.CaptureStartTime;
             dateMask = [0 0 0 60*60 60 1];
             % mod to fix noon singularity

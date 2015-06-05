@@ -1,24 +1,24 @@
 %% Create new experimental file entry
-%test = HiRoLab.newTest();
+%test = ZTools.newTest();
 
 %% Load file
-test = HiRoLab.loadTest();
+%test = ZTools.loadTest();
 
 %% Pre-process the raw data
-[tblCam, t0Cam, fCam] = HiRoLab.readCSV( test.csvFile );
-[tblPlate, t0Plate, fPlate] = HiRoLab.readLVM( test.lvmFile );
+[tblCam, t0Cam, fCam] = ZTools.readCSV( test.csvFile );
+[tblPlate, t0Plate, fPlate] = ZTools.readLVM( test.lvmFile );
 
-camTableClean = HiRoLab.removeNaN( tblCam );
+camTableClean = ZTools.removeNaN( tblCam );
 
-[tblCamSync, tblPlateSync, t, f, t0] = HiRoLab.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
+[tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
 
-[Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = HiRoLab.parseCamTable( tblCamSync, test );
-[z1, z2, z3, z4, x12, x34, y14, y23] = HiRoLab.parsePlateTable( tblPlateSync );
+[Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
+[z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
 
 rows = abs(Pfoot(:,1) - Pplate(:,1)) < 2 & ( t > t(1)+3 & t < t(end)-3 )';
 %rows = t > t(1)+3 & t < t(end)-3;
 
-[rs, rf] = HiRoLab.calculateJointPosition( Psheen(rows,:), Qsheen(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
+[rs, rf] = ZTools.calculateJointPosition( Psheen(rows,:), Qsheen(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
 Pankle = (Pfoot + quatrotate(quatinv(Qfoot), rf') + Psheen + quatrotate(quatinv(Qsheen), rs')) / 2;
 
 %% Verify cam data integrity on Simulink
@@ -36,7 +36,7 @@ sim( 'simImpedanceExperiment.slx' )
 
 %% Check FFT
 %{
-HiRoLab.plotFFT( t, Qfoot(:,1) );
+ZTools.plotFFT( t, Qfoot(:,1) );
 %}
 
 %% Get ankle angle using quaternion components
