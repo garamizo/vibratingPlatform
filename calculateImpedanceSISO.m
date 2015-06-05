@@ -8,14 +8,17 @@
 [tblCam, t0Cam, fCam] = ZTools.readCSV( test.csvFile );
 [tblPlate, t0Plate, fPlate] = ZTools.readLVM( test.lvmFile );
 
-camTableClean = ZTools.removeNaN( tblCam );
+%camTableClean = ZTools.removeNaN( tblCam );
+camTableClean = tblCam;
 
 [tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
 
 [Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
 
-rows = abs(Pfoot(:,1) - Pplate(:,1)) < 2 & ( t > t(1)+3 & t < t(end)-3 )';
+rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 0.3 ...
+    & ( t > t(end)/10 & t < t(end)*9/10 )' ...
+    & ~any(isnan([Qfoot Qsheen Pfoot Psheen]),2);
 %rows = t > t(1)+3 & t < t(end)-3;
 
 [rs, rf] = ZTools.calculateJointPosition( Psheen(rows,:), Qsheen(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
