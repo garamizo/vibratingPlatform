@@ -135,14 +135,17 @@ classdef ZTools
         end
         
         function yFill = fillGaps( y, threshold )
-        % FILLGAPS interpolates the NaNs 
-        % based of http://www.mathworks.com/matlabcentral/answers/11846-identifying-gaps-in-time-series-data
-            n = find( all(~isnan(y), 2) );
-            gap = [0; diff( n )-1];
-            idx = n( gap <= threshold & gap > 0 );
-            gap( idx )
+        % FILLGAPS interpolates up to 'threshold' consecutive NaNs
+        % Do not extrapolate
             
-            yFill = 0;
+            rowsNaN = any( isnan( y ), 2 );
+            a = strfind( rowsNaN', ones(1,threshold+1) );
+            idxNot = unique([a; bsxfun( @plus, repmat( a, [threshold 1] ), (1:threshold)' )]);
+            idx = setdiff( find(rowsNaN), idxNot );
+            
+            n = 1 : size(y,1);
+            yFill = y;
+            yFill(idx,:) = interp1( n(~rowsNaN), y(~rowsNaN,:), n(idx) );
         end
 
         function [tbl, timestamp0, f] = readLVM( fileName )

@@ -10,6 +10,7 @@
 
 %camTableClean = ZTools.removeNaN( tblCam );
 camTableClean = tblCam;
+camTableClean{:,:} = ZTools.fillGaps( tblCam{:,:}, 3 );
 
 [tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
 
@@ -59,12 +60,6 @@ F1 = quatrotate( quatinv(Qplate), -[x12/2 -z1 y14/2] );
 F2 = quatrotate( quatinv(Qplate), -[x12/2 -z2 y23/2] );
 F3 = quatrotate( quatinv(Qplate), -[x34/2 -z3 y23/2] );
 F4 = quatrotate( quatinv(Qplate), -[x34/2 -z4 y14/2] );
-
-% ankle to sensor position, W RF
-% r1 = quatrotate( quatinv(Qplate), [a -az0 -b] ) + Pplate - Pankle;
-% r2 = quatrotate( quatinv(Qplate), [-a -az0 -b] ) + Pplate - Pankle;
-% r3 = quatrotate( quatinv(Qplate), [-a -az0 b] ) + Pplate - Pankle;
-% r4 = quatrotate( quatinv(Qplate), [a -az0 b] ) + Pplate - Pankle;
 
 r1 = quatrotate( quatinv(Qplate), [a -az0 b] ) + Pplate - Pankle;
 r2 = quatrotate( quatinv(Qplate), [-a -az0 b] ) + Pplate - Pankle;
