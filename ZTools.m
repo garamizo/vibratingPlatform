@@ -97,16 +97,86 @@ classdef ZTools
         function header = readCSVHeader( csvFile )
             
             fid = fopen(csvFile);
-            tline = fgets(fid);
-            tmp = strsplit( tline, ',' );
+            line = fgets(fid);
+            lineSpl = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
             
-            header.FormatVersion = str2double( tmp{2} );
-            header.TakeName = tmp{4};
-            header.CaptureFrameRate = str2double( tmp{6} );
-            header.ExportFrameRate = str2double( tmp{8} );
-            header.CaptureStartTime = tmp{10};
-            header.TotalFrames = str2double( tmp{12} );
-            header.RotationType = tmp{14};
+            header.FormatVersion = lineSpl{2};
+            header.TakeName = lineSpl{4};
+            header.CaptureFrameRate = str2double( lineSpl{6} );
+            header.ExportFrameRate = str2double( lineSpl{8} );
+            header.CaptureStartTime = lineSpl{10};
+            header.TotalFrames = str2double( lineSpl{12} );
+            header.RotationType = lineSpl{14};
+            
+            fgets(fid);
+            line = fgets(fid);
+            entities = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+            
+            header.Options.RigidBody = ismember( 'Rigid Body', unique(entities) );
+            header.Options.RigidBodyMarker = ismember( 'Rigid Body Marker', unique(entities) );
+            header.Options.Marker = ismember( 'Marker', unique(entities) );
+            header.Options.Bone = ismember( 'Bone', unique(entities) );
+            header.Options.BoneMarker = ismember( 'Bone Marker', unique(entities) );
+            
+            line = fgets(fid);
+            aliases = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+            
+            line = fgets(fid);
+            keyNames = regexprep(deblank( strsplit( line, ',', 'CollapseDelimiters', false ) ), '"', '');
+            
+            line = fgets(fid);
+            fieldsPrefix = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+            
+            line = fgets(fid);
+            fieldsSufix = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+            
+            fields = strcat( fieldsPrefix, fieldsSufix );
+            
+            cols = find( strcmp( entities, 'Marker' ) );
+            markerKeyNames = keyNames( cols );
+            [markerKeyNamesSet, idx] = unique( markerKeyNames );
+            markerAliasesSet = aliases( cols(idx) );
+            for n = 1 : length( markerKeyNamesSet )
+                cols = strcmp( markerKeyNamesSet{n}, keyNames );
+                NameValue = [   regexprep( fields( cols ), ' ', '' );
+                                num2cell( find( cols ) )                ];
+                NameValue = reshape( NameValue, [1 numel(NameValue)] );
+                index = struct( NameValue{:} );
+                header.marker(n) = struct( 'keyName', markerKeyNamesSet{n}, ...
+                    'alias', markerAliasesSet{n}, 'index', index );
+            end
+            
+            cols = find( strcmp( entities, 'Rigid Body Marker' ) );
+            superKeyNames = strcat( keyNames, '-', aliases );
+            tmpSuperKeyNames = superKeyNames(cols);
+            [tmpSuperKeyNamesSet, idx] = unique( tmpSuperKeyNames );
+            tmpKeyNamesSet = keyNames( cols(idx) );
+            tmpAliasesSet = aliases( cols(idx) );
+            for n = 1 : length( tmpSuperKeyNamesSet )
+                cols = strcmp( tmpSuperKeyNamesSet{n}, superKeyNames );
+                NameValue = [   regexprep( fields( cols ), ' ', '' );
+                                num2cell( find( cols ) )                ];
+                NameValue = reshape( NameValue, [1 numel(NameValue)] );
+                index = struct( NameValue{:} );
+                tmp(n) = struct( 'keyName', tmpKeyNamesSet{n}, ...
+                    'alias', tmpAliasesSet{n}, 'index', index );
+            end
+            
+            cols = find( strcmp( entities, 'Rigid Body' ) );
+            rigidBodyKeyNames = keyNames( cols );
+            [rigidBodyKeyNamesSet, idx] = unique( rigidBodyKeyNames );
+            rigidBodyAliasesSet = aliases( cols(idx) );
+            for n = 1 : length( rigidBodyKeyNamesSet )
+                cols = strcmp( rigidBodyAliasesSet{n}, aliases );
+                NameValue = [   regexprep( fields( cols ), ' ', '' );
+                                num2cell( find( cols ) )                ];
+                NameValue = reshape( NameValue, [1 numel(NameValue)] );
+                index = struct( NameValue{:} );
+                colMarkers = strcmp( rigidBodyKeyNamesSet{n}, {tmp.keyName} );
+                header.rigidBody(n) = struct( 'keyName', rigidBodyKeyNamesSet{n}, ...
+                    'alias', rigidBodyAliasesSet{n}, 'index', index, ...
+                    'marker', tmp(colMarkers) );
+            end
 
             fclose(fid);
         end
@@ -138,14 +208,15 @@ classdef ZTools
         % FILLGAPS interpolates up to 'threshold' consecutive NaNs
         % Do not extrapolate
             
-            rowsNaN = any( isnan( y ), 2 );
-            a = strfind( rowsNaN', ones(1,threshold+1) );
-            idxNot = unique([a; bsxfun( @plus, repmat( a, [threshold 1] ), (1:threshold)' )]);
-            idx = setdiff( find(rowsNaN), idxNot );
-            
             n = 1 : size(y,1);
             yFill = y;
-            yFill(idx,:) = interp1( n(~rowsNaN), y(~rowsNaN,:), n(idx) );
+            for k = 1 : size(y,2)
+                rowsNaN = isnan( y(:,k) );
+                a = strfind( rowsNaN', ones(1,threshold+1) );
+                idxNot = unique( bsxfun( @plus, repmat( a, [threshold 1] ), (0:threshold)' ) );
+                idx = setdiff( find(rowsNaN), idxNot );               
+                yFill(idx,k) = interp1( n(~rowsNaN), y(~rowsNaN,k), n(idx) );
+            end
         end
 
         function [tbl, timestamp0, f] = readLVM( fileName )
