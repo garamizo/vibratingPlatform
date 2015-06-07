@@ -52,7 +52,7 @@ classdef ZTools
 
             test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
                 'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
-                'offsetPlate', offsetPlate );
+                'offsetPlate', offsetPlate, 'csvHeader', h );
         end
         
         function test = loadTest()
@@ -82,7 +82,7 @@ classdef ZTools
             end
         end
         
-        function [tbl, timestamp0, f] = readCSV( csvFile )
+        function [tbl, timestamp0, f, header] = readCSV( csvFile )
 
             header = ZTools.readCSVHeader( csvFile );
             date2 = header.CaptureStartTime;
@@ -97,8 +97,8 @@ classdef ZTools
         function header = readCSVHeader( csvFile )
             
             fid = fopen(csvFile);
-            line = fgets(fid);
-            lineSpl = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+
+            lineSpl = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
             
             header.FormatVersion = lineSpl{2};
             header.TakeName = lineSpl{4};
@@ -109,99 +109,48 @@ classdef ZTools
             header.RotationType = lineSpl{14};
             
             fgets(fid);
-            line = fgets(fid);
-            entities = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
+            entities = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
+            names = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
+            subnames = regexprep(deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) ), '"', '');
+            fieldsPrefix = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
+            fieldsSufix = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
             
-            header.Options.RigidBody = ismember( 'Rigid Body', unique(entities) );
-            header.Options.RigidBodyMarker = ismember( 'Rigid Body Marker', unique(entities) );
-            header.Options.Marker = ismember( 'Marker', unique(entities) );
-            header.Options.Bone = ismember( 'Bone', unique(entities) );
-            header.Options.BoneMarker = ismember( 'Bone Marker', unique(entities) );
-            
-            line = fgets(fid);
-            aliases = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
-            
-            line = fgets(fid);
-            keyNames = regexprep(deblank( strsplit( line, ',', 'CollapseDelimiters', false ) ), '"', '');
-            
-            line = fgets(fid);
-            fieldsPrefix = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
-            
-            line = fgets(fid);
-            fieldsSufix = deblank( strsplit( line, ',', 'CollapseDelimiters', false ) );
-            
+            keyNames = strcat( names, '.', subnames );
             fields = strcat( fieldsPrefix, fieldsSufix );
             
-            cols = find( strcmp( entities, 'Marker' ) );
-            markerKeyNames = keyNames( cols );
-            [markerKeyNamesSet, idx] = unique( markerKeyNames );
-            markerAliasesSet = aliases( cols(idx) );
-            for n = 1 : length( markerKeyNamesSet )
-                cols = strcmp( markerKeyNamesSet{n}, keyNames );
-                NameValue = [   regexprep( fields( cols ), ' ', '' );
-                                num2cell( find( cols ) )                ];
-                NameValue = reshape( NameValue, [1 numel(NameValue)] );
-                index = struct( NameValue{:} );
-                header.marker(n) = struct( 'keyName', markerKeyNamesSet{n}, ...
-                    'alias', markerAliasesSet{n}, 'index', index );
-            end
-            
-            cols = find( strcmp( entities, 'Rigid Body Marker' ) );
-            superKeyNames = strcat( keyNames, '-', aliases );
-            tmpSuperKeyNames = superKeyNames(cols);
-            [tmpSuperKeyNamesSet, idx] = unique( tmpSuperKeyNames );
-            tmpKeyNamesSet = keyNames( cols(idx) );
-            tmpAliasesSet = aliases( cols(idx) );
-            for n = 1 : length( tmpSuperKeyNamesSet )
-                cols = strcmp( tmpSuperKeyNamesSet{n}, superKeyNames );
-                NameValue = [   regexprep( fields( cols ), ' ', '' );
-                                num2cell( find( cols ) )                ];
-                NameValue = reshape( NameValue, [1 numel(NameValue)] );
-                index = struct( NameValue{:} );
-                tmp(n) = struct( 'keyName', tmpKeyNamesSet{n}, ...
-                    'alias', tmpAliasesSet{n}, 'index', index );
-            end
-            
-            cols = find( strcmp( entities, 'Rigid Body' ) );
-            rigidBodyKeyNames = keyNames( cols );
-            [rigidBodyKeyNamesSet, idx] = unique( rigidBodyKeyNames );
-            rigidBodyAliasesSet = aliases( cols(idx) );
-            for n = 1 : length( rigidBodyKeyNamesSet )
-                cols = strcmp( rigidBodyAliasesSet{n}, aliases );
-                NameValue = [   regexprep( fields( cols ), ' ', '' );
-                                num2cell( find( cols ) )                ];
-                NameValue = reshape( NameValue, [1 numel(NameValue)] );
-                index = struct( NameValue{:} );
-                colMarkers = strcmp( rigidBodyKeyNamesSet{n}, {tmp.keyName} );
-                header.rigidBody(n) = struct( 'keyName', rigidBodyKeyNamesSet{n}, ...
-                    'alias', rigidBodyAliasesSet{n}, 'index', index, ...
-                    'marker', tmp(colMarkers) );
-            end
-
-            fclose(fid);
-        end
-
-        function tbl = removeNaN( tbl, varargin )
-            nn = (1 : size( tbl, 1 ))';
-            for n = 1 : size(tbl,2)
-                if any(isnan(tbl{:,n})) == true
-
-                    rows = isnan(tbl{:,n}); % rows to interpolate
-                    
-                    if  sum(~rows) >= 2 % don't try to interpolate 1-dot collumn
-                        tbl{rows,n} = spline(nn(~rows), tbl{~rows,n}, nn(rows));
-                    end
-
-                    if nargin > 2
-                        figure;
-                        plot(nn, tbl{:,n})
-                        hold on
-                        plot(nn(rows), tbl{rows,n}, 'o')
-                        hold off
-                        title(num2str(n))
-                    end
+            for entityType = {'Rigid Body', 'Rigid Body Marker', 'Marker', 'Bone', 'Bone Marker'}
+                type = regexprep( entityType{1}, ' ', '' );
+                
+                cols = find( strcmp( entities, entityType ) );
+                tmpKeyNames = keyNames( cols );
+                [tmpKeyNamesSet, idx] = unique( tmpKeyNames );
+                tmpNamesSet = names( cols(idx) );
+                tmpSubnamesSet = subnames( cols(idx) );
+                for n = 1 : length( tmpKeyNamesSet )
+                    cols = strcmp( tmpKeyNamesSet{n}, keyNames );
+                    NameValue = [   regexprep( fields( cols ), ' ', '' );
+                                    num2cell( find( cols ) )                ];
+                    NameValue = reshape( NameValue, [1 numel(NameValue)] );
+                    index = struct( NameValue{:} );
+                    header.(type)(n) = struct( 'name', tmpNamesSet{n}, ...
+                        'subname', tmpSubnamesSet{n}, 'index', index );
                 end
             end
+            
+            if isfield( header, 'Bone' ) && isfield( header, 'BoneMarker' )
+                for n = 1 : length( header.Bone )
+                    col = ~cellfun( @isempty, strfind( {header.BoneMarker.name}, header.Bone(n).name ) );
+                    header.Bone(n).Marker = header.BoneMarker(col);
+                end
+            end
+            if isfield( header, 'RigidBody' ) && isfield( header, 'RigidBodyMarker' )
+                for n = 1 : length( header.RigidBody )
+                    col = ~cellfun( @isempty, strfind( {header.RigidBodyMarker.subname}, header.RigidBody(n).subname ) );
+                    header.RigidBody(n).Marker = header.RigidBodyMarker(col);
+                end
+            end
+            
+            fclose(fid);
         end
         
         function yFill = fillGaps( y, threshold )
