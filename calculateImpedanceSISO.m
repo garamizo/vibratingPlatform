@@ -5,14 +5,14 @@
 %test = ZTools.loadTest();
 
 %% Pre-process the raw data
-[tblCam, t0Cam, fCam] = ZTools.readCSV( test.csvFile );
-[tblPlate, t0Plate, fPlate] = ZTools.readLVM( test.lvmFile );
+[tblCam, headerCam] = ZTools.readCSV( test.csvFile );
+[tblPlate, headerPlate] = ZTools.readLVM( test.lvmFile );
 
 %camTableClean = ZTools.removeNaN( tblCam );
 camTableClean = tblCam;
 camTableClean{:,:} = ZTools.fillGaps( tblCam{:,:}, 3 );
 
-[tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
+[tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, headerCam.t0, headerCam.fs, tblPlate, headerPlate.t0, headerPlate.fs );
 
 [Pplate, Qplate, Pshin, Qshin, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
@@ -34,7 +34,7 @@ Pfoot = tblCamSync(:,[IdxFoot.PositionX IdxFoot.PositionY IdxFoot.PositionZ]);
 Qfoot = tblCamSync(:,[IdxFoot.RotationW IdxFoot.RotationX IdxFoot.RotationY IdxFoot.RotationZ]);
 
 rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 0.3 ...
-    & ( t > t(end)/10 & t < t(end)*9/10 )' ...
+    & ( t > t(end)/10 & t < t(end)*9/10 ) ...
     & ~any(isnan([Qfoot Qshin Pfoot Pshin]),2);
 %rows = t > t(1)+3 & t < t(end)-3;
 
@@ -88,7 +88,7 @@ torqueF = quatrotate( Qfoot, cross( r1, F1 ) + cross( r2, F2 ) + cross( r3, F3 )
 %% Calculate impedance
 
 % ========================================================
-rows = t > 3 & t < t(end)-3;
+rows = t > 3 & t < t(end)-3 & all(~isnan([angles torques]),2);
 
 torques = torqueF;
 angles = angs;

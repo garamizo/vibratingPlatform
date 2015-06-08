@@ -82,14 +82,14 @@ classdef ZTools
             end
         end
         
-        function [tbl, timestamp0, f, header] = readCSV( csvFile )
+        function [tbl, header] = readCSV( csvFile )
 
             header = ZTools.readCSVHeader( csvFile );
             date2 = header.CaptureStartTime;
             dateMask = [0 0 0 60*60 60 1];
             % mod to fix noon singularity
-            timestamp0 = mod( datevec(date2, 'yyyy-mm-dd HH.MM.SS.FFF PM') * dateMask', 12*60*60 );
-            f = header.ExportFrameRate;
+            header.t0 = mod( datevec(date2, 'yyyy-mm-dd HH.MM.SS.FFF PM') * dateMask', 12*60*60 );
+            header.fs = header.ExportFrameRate;
 
             tbl = readtable(csvFile, 'HeaderLines', 6);
         end
@@ -170,13 +170,13 @@ classdef ZTools
             end
         end
 
-        function [tbl, timestamp0, f] = readLVM( fileName )
+        function [tbl, header] = readLVM( fileName )
             
             header = lvm_import( fileName );
             tbl = array2table( header.Segment1.data );
-            timestamp0 = mod( header.Time, 12*60*60 );
-            f = mean( 1./diff(tbl{:,1}) );
-            if std( 1./diff(tbl{:,1}) ) > f/10
+            header.t0 = mod( datevec(header.Time)*[0 0 0 60*60 60 1]', 12*60*60 );
+            header.fs = mean( 1./diff(tbl{:,1}) );
+            if std( 1./diff(tbl{:,1}) ) > header.fs/10
                 error('High variance in sampling time.')
             end
         end
@@ -211,6 +211,7 @@ classdef ZTools
             t = ta( rows );
             t0 = t(1);
             t = t - t0;
+            t = reshape( t, [numel(t) 1] );
         end
 
         function [Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = parseCamTable( tbl, param )
