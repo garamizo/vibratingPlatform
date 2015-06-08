@@ -162,34 +162,23 @@ classdef ZTools
             for k = 1 : size(y,2)
                 rowsNaN = isnan( y(:,k) );
                 a = strfind( rowsNaN', ones(1,threshold+1) );
-                idxNot = unique( bsxfun( @plus, repmat( a, [threshold 1] ), (0:threshold)' ) );
-                idx = setdiff( find(rowsNaN), idxNot );               
-                yFill(idx,k) = interp1( n(~rowsNaN), y(~rowsNaN,k), n(idx) );
+                if any(~isempty(a)) && sum(~rowsNaN) >= 2
+                    idxNot = unique( bsxfun( @plus, repmat( a, [threshold+1 1] ), (0:threshold)' ) );
+                    idx = setdiff( find(rowsNaN), idxNot );               
+                    yFill(idx,k) = interp1( n(~rowsNaN), y(~rowsNaN,k), n(idx) );
+                end
             end
         end
 
         function [tbl, timestamp0, f] = readLVM( fileName )
-
-            timestamp0 = mod( extractTime( fileName ), 12*60*60 ); % mod to fix noon singularity
-            [pathstr,name,~] = fileparts(fileName);
-            fileNameDat = [pathstr '\' name '.dat'];
-            copyfile(fileName, fileNameDat, 'f');
-
-            tbl = readtable(fileNameDat, 'ReadRowNames', false, 'Delimiter', '\t', 'HeaderLines', 23);
+            
+            header = lvm_import( fileName );
+            tbl = array2table( header.Segment1.data );
+            timestamp0 = mod( header.Time, 12*60*60 );
             f = mean( 1./diff(tbl{:,1}) );
-
-            function t0 = extractTime( fileName )
-                fid = fopen(fileName);
-                for n = 1 : 12
-                    tline = fgets(fid);
-                end
-                tmp = strsplit( tline, '\t' );
-                date1 = tmp{2};
-                dateMask = [0 0 0 60*60 60 1];
-                t0 = datevec(date1) * dateMask';
-                fclose(fid);
+            if std( 1./diff(tbl{:,1}) ) > f/10
+                error('High variance in sampling time.')
             end
-
         end
 
         function [tblaa, tblbb, t, f, t0] = synchronizeTables( tbla, t0a, fa, tblb, t0b, fb )

@@ -14,25 +14,41 @@ camTableClean{:,:} = ZTools.fillGaps( tblCam{:,:}, 3 );
 
 [tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, t0Cam, fCam, tblPlate, t0Plate, fPlate );
 
-[Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
+[Pplate, Qplate, Pshin, Qshin, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
+
+h = ZTools.readCSVHeader( test.csvFile );
+
+% IdxPlate = h.RigidBody.index;
+% IdxShin = h.Bone(17).index;
+% IdxFoot = h.Bone(15).index;
+IdxPlate = h.RigidBody(1).index;
+IdxShin = h.RigidBody(2).index;
+IdxFoot = h.RigidBody(3).index;
+
+Pplate = tblCamSync(:,[IdxPlate.PositionX IdxPlate.PositionY IdxPlate.PositionZ]);
+Qplate = tblCamSync(:,[IdxPlate.RotationW IdxPlate.RotationX IdxPlate.RotationY IdxPlate.RotationZ]);
+Pshin = tblCamSync(:,[IdxShin.PositionX IdxShin.PositionY IdxShin.PositionZ]);
+Qshin = tblCamSync(:,[IdxShin.RotationW IdxShin.RotationX IdxShin.RotationY IdxShin.RotationZ]);
+Pfoot = tblCamSync(:,[IdxFoot.PositionX IdxFoot.PositionY IdxFoot.PositionZ]);
+Qfoot = tblCamSync(:,[IdxFoot.RotationW IdxFoot.RotationX IdxFoot.RotationY IdxFoot.RotationZ]);
 
 rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 0.3 ...
     & ( t > t(end)/10 & t < t(end)*9/10 )' ...
-    & ~any(isnan([Qfoot Qsheen Pfoot Psheen]),2);
+    & ~any(isnan([Qfoot Qshin Pfoot Pshin]),2);
 %rows = t > t(1)+3 & t < t(end)-3;
 
-[rs, rf] = ZTools.calculateJointPosition( Psheen(rows,:), Qsheen(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
-Pankle = (Pfoot + quatrotate(quatinv(Qfoot), rf') + Psheen + quatrotate(quatinv(Qsheen), rs')) / 2;
+[rs, rf] = ZTools.calculateJointPosition( Pshin(rows,:), Qshin(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
+Pankle = (Pfoot + quatrotate(quatinv(Qfoot), rf') + Pshin + quatrotate(quatinv(Qshin), rs')) / 2;
 
 %% Verify cam data integrity on Simulink
 [rx1, ry1, rz1] = quat2angle(Qplate, 'XYZ');
-[rx2, ry2, rz2] = quat2angle(Qsheen, 'XYZ');
+[rx2, ry2, rz2] = quat2angle(Qshin, 'XYZ');
 [rx3, ry3, rz3] = quat2angle(Qfoot, 'XYZ');
 
 dataIn.time = t;
 dataIn.signals.dimensions = 21;
-dataIn.signals.values = [ Pplate Psheen Pfoot rad2deg([rx1, ry1, rz1, rx2, ry2, rz2, rx3, ry3, rz3]) Pankle ];
+dataIn.signals.values = [ Pplate Pshin Pfoot rad2deg([rx1, ry1, rz1, rx2, ry2, rz2, rx3, ry3, rz3]) Pankle ];
 
 %{
 sim( 'simImpedanceExperiment.slx' )
@@ -45,7 +61,7 @@ ZTools.plotFFT( t, Qfoot(:,1) );
 
 %% Get ankle angle using quaternion components
 % Foot rotation is respect to shin
-q12 = quatmultiply( quatinv(Qsheen), Qfoot ); 
+q12 = quatmultiply( quatinv(Qshin), Qfoot ); 
 theta = 2* acos( q12(:,1) );
 vec = q12(:,2:4) ./ repmat(sin(theta/2), [1 3]);
 angs = vec .* repmat(theta, [1 3]); % rotation components
