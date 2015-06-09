@@ -5,6 +5,7 @@ classdef ZTools
     properties(Constant)
         centroid3Markers = [0.078692666666667 0 -0.045018];
         centroid4Markers = -[0.033624698258992   0.000652664546980  -0.000157121850220];
+        standardLogFile = 'vibratingPlatformReference.csv';
     end
     
     methods
@@ -12,7 +13,37 @@ classdef ZTools
     
     methods(Static)
         
-        function test = newTest()
+        function tbl = createLogTable( varargin )
+            
+            tbl = table();
+            tbl.id = 'sample test';
+            tbl.name = 'Evandro Ficanha';
+            tbl.age = 27;
+            tbl.gender = 'M';
+            tbl.height = 1.85;
+            tbl.shoeSize = '11 M';
+            tbl.email = 'eficanh@mtu.edu';
+            tbl.lifeStyle = 'active';
+            tbl.testType = 'Time Varying Impedance';
+            tbl.comments = 'sample file';
+            tbl.csvFile = [ pwd '\sample\stance\Take 2015-06-02 12.10.29 AM.csv' ];
+            tbl.lvmFile = [ pwd '\sample\stance\raw_1.lvm' ];
+            tbl.plateAlias = 'Rigid Body 1';
+            tbl.shinAlias = 'Rigid Body 2';
+            tbl.footAlias = 'Rigid Body 3';
+            
+            if nargin == 1
+                writetable(tbl, varargin{1});
+            end
+        end
+        
+        function test = newTest( varargin )
+            
+            if nargin == 1
+                logFile = varargin{1};
+            else
+                logFile = ZTools.standardLogFile;
+            end
             
             [filename, pathname] = uigetfile('*.csv;*.lvm', 'Browse the camera system (CSV) and LabVIEW (LVM) file.', 'MultiSelect', 'on');
 
@@ -42,7 +73,7 @@ classdef ZTools
             rFootIndex = str2num( answer{5} );
             offsetPlate = -ZTools.centroid4Markers;
 
-            fid = fopen( 'vibratingPlatformReference.csv', 'a+' );
+            fid = fopen( logFile, 'a+' );
 
             fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject ' | ' h.TakeName ' | ' comments], ...
                 subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
@@ -55,28 +86,27 @@ classdef ZTools
                 'offsetPlate', offsetPlate, 'csvHeader', h );
         end
         
-        function test = loadTest()
+        function test = loadTest( varargin )
             
-            tbl = readtable('vibratingPlatformReference.csv', 'HeaderLines', 0);
+            if nargin == 1
+                logFile = varargin{1};
+            else
+                logFile = ZTools.standardLogFile;
+            end
+            tbl = readtable( logFile, 'HeaderLines', 0);
 
             [index,v] = listdlg('PromptString','Select a file:',...
                             'SelectionMode','single',...
-                            'ListString',tbl.test, ...
+                            'ListString',tbl.id, ...
                             'ListSize', [600 300]);
 
             if v == 1
-                csvFile = tbl.csvFile(index);
-                lvmFile = tbl.lvmFile(index);
-                subject = tbl.subject(index);
-                comments = tbl.comments(index);
-                plateIndex = tbl.plateIndex(index);
-                rSheenIndex = tbl.rSheenIndex(index);
-                rFootIndex = tbl.rFootIndex(index);
-                offsetPlate = [tbl.offsetPlateX(index) tbl.offsetPlateY(index) tbl.offsetPlateZ(index)];
-
-                test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
-                    'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
-                    'offsetPlate', offsetPlate );
+                test.csvFile = tbl.csvFile(index);
+                test.lvmFile = tbl.lvmFile(index);
+                test.plateAlias = tbl.plateAlias(index);
+                test.rShinAlias = tbl.shinAlias(index);
+                test.rFootAlias = tbl.footAlias(index);
+                test.offsetPlate = -ZTools.centroid4Markers;
             else
                 error('File not selected')
             end
@@ -84,14 +114,16 @@ classdef ZTools
         
         function [tbl, header] = readCSV( csvFile )
 
-            header = ZTools.readCSVHeader( csvFile );
-            date2 = header.CaptureStartTime;
-            dateMask = [0 0 0 60*60 60 1];
-            % mod to fix noon singularity
-            header.t0 = mod( datevec(date2, 'yyyy-mm-dd HH.MM.SS.FFF PM') * dateMask', 12*60*60 );
-            header.fs = header.ExportFrameRate;
-
             tbl = readtable(csvFile, 'HeaderLines', 6);
+            header = ZTools.readCSVHeader( csvFile );
+            vec = datevec( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
+            header.t0 = vec * [0 0 0 60^2 60 1]';
+            header.fs = header.ExportFrameRate;
+            
+            % Fix Optitrack dating bug
+            if vec(4) == 12 && ~isempty( strfind( header.CaptureStartTime, 'PM' ) )
+                header.t0 = header.t0 + 12*60^2;
+            end         
         end
         
         function header = readCSVHeader( csvFile )
