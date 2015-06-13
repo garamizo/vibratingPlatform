@@ -13,10 +13,14 @@ classdef ZTools
     
     methods(Static)
         
-        function tbl = createLogTable( varargin )
+        function tbl = createLogTable( fileName, save )
+            
+            if isempty( fileName )
+                fileName = ZTools.standardLogFile;
+            end
             
             tbl = table();
-            tbl.id = 'sample test';
+            tbl.id = ['sample test ' datestr(now)];
             tbl.name = 'Evandro Ficanha';
             tbl.age = 27;
             tbl.gender = 'M';
@@ -26,14 +30,17 @@ classdef ZTools
             tbl.lifeStyle = 'active';
             tbl.testType = 'Time Varying Impedance';
             tbl.comments = 'sample file';
-            tbl.csvFile = [ pwd '\sample\stance\Take 2015-06-02 12.10.29 AM.csv' ];
-            tbl.lvmFile = [ pwd '\sample\stance\raw_1.lvm' ];
+            tbl.csvFile = [ pwd '/sample/stance/Take 2015-06-02 12.10.29 AM.csv' ];
+            tbl.lvmFile = [ pwd '/sample/stance/raw_1.lvm' ];
             tbl.plateAlias = 'Rigid Body 1';
-            tbl.shinAlias = 'Rigid Body 2';
-            tbl.footAlias = 'Rigid Body 3';
+            tbl.rShinAlias = 'Rigid Body 2';
+            tbl.rFootAlias = 'Rigid Body 3';
+            tbl.plateCentroidX = ZTools.centroid4Markers(1);
+            tbl.plateCentroidY = ZTools.centroid4Markers(2);
+            tbl.plateCentroidZ = ZTools.centroid4Markers(3);
             
-            if nargin == 1
-                writetable(tbl, varargin{1});
+            if strcmp( save, 's' )
+                writetable(tbl, fileName);
             end
         end
         
@@ -60,30 +67,55 @@ classdef ZTools
             else
                 error('Didnt pick two files')
             end
-
-            h = ZTools.readCSVHeader( csvFile );
-
-            answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
-            answer = regexprep( answer, ',', '' ); % comma is not allowed
             
-            subject = answer{1};
-            comments = answer{2};
-            plateIndex = str2num( answer{3} );
-            rSheenIndex = str2num( answer{4} );
-            rFootIndex = str2num( answer{5} );
-            offsetPlate = -ZTools.centroid4Markers;
+%%
+            %test = table();
+            test.id = ['sample test ' datestr(now)];
+            test.name = 'Evandro Ficanha';
+            test.age = 27;
+            test.gender = 'M';
+            test.height = 1.85;
+            test.shoeSize = '11 M';
+            test.email = 'eficanh@mtu.edu';
+            test.lifeStyle = 'active';
+            test.testType = 'Time Varying Impedance';
+            test.comments = 'sample file';
+            test.csvFile = csvFile;
+            test.lvmFile = lvmFile;
+            test.plateAlias = 'Rigid Body 1';
+            test.rShinAlias = 'Rigid Body 2';
+            test.rFootAlias = 'Rigid Body 3';
+            test.plateCentroidX = ZTools.centroid4Markers(1);
+            test.plateCentroidY = ZTools.centroid4Markers(2);
+            test.plateCentroidZ = ZTools.centroid4Markers(3);
+            
+            tbl = readtable( logFile );
+            writetable( [ tbl; struct2table(test) ], logFile );
+            %%
 
-            fid = fopen( logFile, 'a+' );
-
-            fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject ' | ' h.TakeName ' | ' comments], ...
-                subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
-                offsetPlate(1), offsetPlate(2), offsetPlate(3) );
-
-            fclose(fid);
-
-            test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
-                'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
-                'offsetPlate', offsetPlate, 'csvHeader', h );
+%             h = ZTools.readCSVHeader( csvFile );
+% 
+%             answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
+%             answer = regexprep( answer, ',', '' ); % comma is not allowed
+%             
+%             subject = answer{1};
+%             comments = answer{2};
+%             plateIndex = str2num( answer{3} );
+%             rSheenIndex = str2num( answer{4} );
+%             rFootIndex = str2num( answer{5} );
+%             offsetPlate = -ZTools.centroid4Markers;
+% 
+%             fid = fopen( logFile, 'a+' );
+% 
+%             fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject ' | ' h.TakeName ' | ' comments], ...
+%                 subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
+%                 offsetPlate(1), offsetPlate(2), offsetPlate(3) );
+% 
+%             fclose(fid);
+% 
+%             test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
+%                 'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
+%                 'offsetPlate', offsetPlate, 'csvHeader', h );
         end
         
         function test = loadTest( varargin )
@@ -100,13 +132,15 @@ classdef ZTools
                             'ListString',tbl.id, ...
                             'ListSize', [600 300]);
 
-            if v == 1
-                test.csvFile = tbl.csvFile(index);
-                test.lvmFile = tbl.lvmFile(index);
-                test.plateAlias = tbl.plateAlias(index);
-                test.rShinAlias = tbl.shinAlias(index);
-                test.rFootAlias = tbl.footAlias(index);
-                test.offsetPlate = -ZTools.centroid4Markers;
+            if v == 1              
+                test.csvFile = tbl.csvFile{index};
+                test.lvmFile = tbl.lvmFile{index};
+                test.plateAlias = tbl.plateAlias{index};
+                test.rShinAlias = tbl.rShinAlias{index};
+                test.rFootAlias = tbl.rFootAlias{index};
+                test.plateCentroidX = tbl.plateCentroidX(index);
+                test.plateCentroidY = tbl.plateCentroidY(index);
+                test.plateCentroidZ = tbl.plateCentroidZ(index);
             else
                 error('File not selected')
             end
@@ -121,7 +155,7 @@ classdef ZTools
             header.fs = header.ExportFrameRate;
             
             % Fix Optitrack dating bug
-            if vec(4) == 12 && ~isempty( strfind( header.CaptureStartTime, 'PM' ) )
+            if vec(4) == 00 && ~isempty( strfind( header.CaptureStartTime, 'AM' ) )
                 header.t0 = header.t0 + 12*60^2;
             end         
         end
@@ -206,7 +240,7 @@ classdef ZTools
             
             header = lvm_import( fileName );
             tbl = array2table( header.Segment1.data );
-            header.t0 = mod( datevec(header.Time)*[0 0 0 60*60 60 1]', 12*60*60 );
+            header.t0 = datevec(header.Time) * [0 0 0 60*60 60 1]';
             header.fs = mean( 1./diff(tbl{:,1}) );
             if std( 1./diff(tbl{:,1}) ) > header.fs/10
                 error('High variance in sampling time.')
@@ -245,12 +279,35 @@ classdef ZTools
             t = t - t0;
             t = reshape( t, [numel(t) 1] );
         end
-
-        function [Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = parseCamTable( tbl, param )
+        
+        function [P, Q] = extractBody( tbl, header, alias )
             
             if isa( tbl, 'table' )
-                tbl = table2mat( tbl );
+                tbl = table2array( tbl );
             end
+            
+            idx = find( strcmp( {header.RigidBody.name}, alias ) );
+            if isempty(idx) || length(idx) > 1
+                error('Alias is not exclusive or inexistent')
+            end
+            
+            P = tbl(:, [header.RigidBody(idx).index.PositionX
+                        header.RigidBody(idx).index.PositionY
+                        header.RigidBody(idx).index.PositionZ] );
+                    
+            Q = tbl(:, [header.RigidBody(idx).index.RotationW
+                        header.RigidBody(idx).index.RotationX
+                        header.RigidBody(idx).index.RotationY
+                        header.RigidBody(idx).index.RotationZ] );
+        end
+
+        function [Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = parseCamTable( tbl, header, bodyAliases )
+            
+            if isa( tbl, 'table' )
+                tbl = table2array( tbl );
+            end
+            
+%             idxPlate = strcmp
 
             % define offset
             os.pos = [4 5 6];

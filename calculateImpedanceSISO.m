@@ -14,24 +14,12 @@ camTableClean{:,:} = ZTools.fillGaps( tblCam{:,:}, 3 );
 
 [tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, headerCam.t0, headerCam.fs, tblPlate, headerPlate.t0, headerPlate.fs );
 
-[Pplate, Qplate, Pshin, Qshin, Pfoot, Qfoot] = ZTools.parseCamTable( tblCamSync, test );
+[Pplate,Qplate] = ZTools.extractBody( tblCamSync, headerCam, test.plateAlias );
+[Pshin,Qshin] = ZTools.extractBody( tblCamSync, headerCam, test.rShinAlias );
+[Pfoot,Qfoot] = ZTools.extractBody( tblCamSync, headerCam, test.rFootAlias    );
+Pplate = Pplate + quatrotate( quatinv(Qplate), -[test.plateCentroidX test.plateCentroidY test.plateCentroidZ] );
+
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
-
-h = ZTools.readCSVHeader( test.csvFile );
-
-% IdxPlate = h.RigidBody.index;
-% IdxShin = h.Bone(17).index;
-% IdxFoot = h.Bone(15).index;
-IdxPlate = h.RigidBody(1).index;
-IdxShin = h.RigidBody(2).index;
-IdxFoot = h.RigidBody(3).index;
-
-Pplate = tblCamSync(:,[IdxPlate.PositionX IdxPlate.PositionY IdxPlate.PositionZ]);
-Qplate = tblCamSync(:,[IdxPlate.RotationW IdxPlate.RotationX IdxPlate.RotationY IdxPlate.RotationZ]);
-Pshin = tblCamSync(:,[IdxShin.PositionX IdxShin.PositionY IdxShin.PositionZ]);
-Qshin = tblCamSync(:,[IdxShin.RotationW IdxShin.RotationX IdxShin.RotationY IdxShin.RotationZ]);
-Pfoot = tblCamSync(:,[IdxFoot.PositionX IdxFoot.PositionY IdxFoot.PositionZ]);
-Qfoot = tblCamSync(:,[IdxFoot.RotationW IdxFoot.RotationX IdxFoot.RotationY IdxFoot.RotationZ]);
 
 rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 0.3 ...
     & ( t > t(end)/10 & t < t(end)*9/10 ) ...
@@ -64,7 +52,7 @@ ZTools.plotFFT( t, Qfoot(:,1) );
 q12 = quatmultiply( quatinv(Qshin), Qfoot ); 
 theta = 2* acos( q12(:,1) );
 vec = q12(:,2:4) ./ repmat(sin(theta/2), [1 3]);
-angs = vec .* repmat(theta, [1 3]); % rotation components
+angles = vec .* repmat(theta, [1 3]); % rotation components
 
 %% Get torque using cross product
 a = 0.21;
@@ -83,15 +71,12 @@ r3 = quatrotate( quatinv(Qplate), [-a -az0 -b] ) + Pplate - Pankle;
 r4 = quatrotate( quatinv(Qplate), [a -az0 -b] ) + Pplate - Pankle;
 
 % torque in the foot RF
-torqueF = quatrotate( Qfoot, cross( r1, F1 ) + cross( r2, F2 ) + cross( r3, F3 ) + cross( r4, F4 ) );
+torques = quatrotate( Qfoot, cross( r1, F1 ) + cross( r2, F2 ) + cross( r3, F3 ) + cross( r4, F4 ) );
 
 %% Calculate impedance
 
 % ========================================================
 rows = t > 3 & t < t(end)-3 & all(~isnan([angles torques]),2);
-
-torques = torqueF;
-angles = angs;
 
 ang_DP = detrend(angles(rows,3));
 torque_DP = detrend(torques(rows,3));
