@@ -6,12 +6,89 @@ classdef ZTools
         centroid3Markers = [0.078692666666667 0 -0.045018];
         centroid4Markers = -[0.033624698258992   0.000652664546980  -0.000157121850220];
         standardLogFile = 'vibratingPlatformReference.csv';
+        subjectFileName = 'subjectFile.csv';
     end
     
     methods
     end
     
     methods(Static)
+        
+        function createSubject()
+
+        % Begin initialization code - DO NOT EDIT
+        f = figure('Visible','off','Position',[360,500,450,285],'Resize','off',...
+            'Name','Create Subject','MenuBar','none');
+
+        savebutton    = uicontrol('Style','pushbutton',...
+                     'String','Save','Position',[10,10,70,25],...
+                        'Callback', {@savebutton_Callback});
+
+        loadbutton    = uicontrol('Style','pushbutton',...
+                     'String','Load','Position',[90,10,70,25],...
+                     'Callback', {@loadbutton_Callback});
+
+        data = {'', [], '', [], '', '', false};
+        %data = {'Guilherme Aramizo Ribeiro', 23, 'Male', 175, '39 BRA', 'garamizo@mtu.edu', true};
+        columnname = {'Name', 'Age', 'Gender', 'Height', 'Shoe #', 'Email', 'Active'};
+        columnformat = {'char','numeric',{'Male','Female'},'numeric','char','char','logical'};
+        columnwidth = {150 60 60 60 60 100 60};
+        subjecttable = uitable('Data', data,... 
+                    'ColumnName', columnname,...
+                    'ColumnFormat', columnformat,...
+                    'RowName',[],...
+                    'ColumnEditable', true(1,7),...
+                    'ColumnWidth', columnwidth,...
+                    'Position',[10 45 400 100]);
+        subjecttable.Position = [10 45 subjecttable.Extent(3:4)];
+
+        f.Position(3:4) = subjecttable.Extent(3:4) + [20 55];
+        f.Visible = 'on';
+
+            % --- Executes on button press in savebutton.
+            function savebutton_Callback(source, eventData)
+            % hObject    handle to savebutton (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+            % hObject
+            % eventdata
+            fileID = fopen( ZTools.subjectFileName, 'r' );
+            if fileID ~= -1
+                A = textscan( fileID, '%s %d %s %d %s %s %d %d', Inf, 'Delimiter', ',' );
+                fclose( fileID );
+                key = max( A{end} ) + 1;
+            else
+                key = 0;
+            end
+
+            fileID = fopen( ZTools.subjectFileName, 'a+' );
+            fprintf( fileID, '%s, %d, %s, %d, %s, %s, %d, %d\n', subjecttable.Data{1,:}, key );
+            fclose( fileID );
+
+            end
+
+            % --- Executes on button press in loadbutton.
+            function loadbutton_Callback(source, eventData)
+            % hObject    handle to loadbutton (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+            fileID = fopen( ZTools.subjectFileName, 'r' );
+            if fileID ~= -1
+                A = textscan( fileID, '%s %d %s %d %s %s %d %d', Inf, 'Delimiter', ',' );
+                fclose( fileID );
+                names = A{:,1};
+                [idx,valid] = listdlg('PromptString','Select a subject as template:',...
+                                'SelectionMode','single',...
+                                'ListString',names,...
+                                'ListSize', [300 300] );
+                if valid
+                    subjecttable.Data = {A{1}{idx}, A{2}(idx), A{3}{idx}, A{4}(idx), A{5}{idx}, A{6}{idx}, A{7}(idx)>0};
+                end
+            else
+                msgbox('Subject file is empty', 'Error','error');
+            end
+            end
+        end
         
         function tbl = createLogTable( fileName, save )
             
@@ -20,7 +97,8 @@ classdef ZTools
             end
             
             tbl = table();
-            tbl.id = ['sample test ' datestr(now)];
+
+            %tbl.id = ['sample test ' datestr(now)];
             tbl.name = 'Evandro Ficanha';
             tbl.age = 27;
             tbl.gender = 'M';
@@ -28,16 +106,23 @@ classdef ZTools
             tbl.shoeSize = '11 M';
             tbl.email = 'eficanh@mtu.edu';
             tbl.lifeStyle = 'active';
+            
             tbl.testType = 'Time Varying Impedance';
             tbl.comments = 'sample file';
-            tbl.csvFile = [ pwd '/sample/stance/Take 2015-06-02 12.10.29 AM.csv' ];
-            tbl.lvmFile = [ pwd '/sample/stance/raw_1.lvm' ];
+%             tbl.csvFile = [ pwd '/sample/stance/Take 2015-06-02 12.10.29 AM.csv' ];
+%             tbl.lvmFile = [ pwd '/sample/stance/raw_1.lvm' ];
+            tbl.csvFile = ['/home/garamizo/Downloads/test1April/Take 2015-04-01 01.45.11 PM.csv' ];
+            tbl.lvmFile = [ '/home/garamizo/Downloads/test1April/raw.lvm' ];
             tbl.plateAlias = 'Rigid Body 1';
             tbl.rShinAlias = 'Rigid Body 2';
-            tbl.rFootAlias = 'Rigid Body 3';
-            tbl.plateCentroidX = ZTools.centroid4Markers(1);
-            tbl.plateCentroidY = ZTools.centroid4Markers(2);
-            tbl.plateCentroidZ = ZTools.centroid4Markers(3);
+            tbl.rFootAlias = 'Rigid Body 1';
+            tbl.plateCentroidX = ZTools.centroid3Markers(1);
+            tbl.plateCentroidY = ZTools.centroid3Markers(2);
+            tbl.plateCentroidZ = ZTools.centroid3Markers(3);
+%             tbl.plateCentroidX = ZTools.centroid4Markers(1);
+%             tbl.plateCentroidY = ZTools.centroid4Markers(2);
+%             tbl.plateCentroidZ = ZTools.centroid4Markers(3);
+            test = tbl;
             
             if strcmp( save, 's' )
                 writetable(tbl, fileName);
