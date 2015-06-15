@@ -62,6 +62,8 @@ Pankle = (Pfoot + quatrotate(quatinv(Qfoot), rf') + Pshin + quatrotate(quatinv(Q
     tests(n).torques = quatrotate( Qfoot, cross( r1, F1 ) + cross( r2, F2 ) + cross( r3, F3 ) + cross( r4, F4 ) );
 
     tests(n).z = z1 + z2 + z3 + z4;
+    
+    tests(n).Qfoot = Qfoot;
 end
 
 angles = [];
@@ -75,9 +77,12 @@ end
 
 %%
 
+nn = 1 : length(z);
 saw = detrend(cumsum(z));
 [~, indexInit] = findpeaks( -saw, 'MinPeakWidth', round(0.3*300) );
 [~, indexEnd] = findpeaks( saw, 'MinPeakWidth', round(0.3*300) );
+
+figure; plot( nn, z, nn(indexInit), 100, 'x' )
 
 offset = zeros(size(indexInit));
 
@@ -103,14 +108,14 @@ for iter = 1 : 10
 
     % good angles
     stdNumberAngles = 1.5;
-    percentageThresAngles = 0.8;
+    percentageThresAngles = 0.9;
     anglesDev = abs( anglesSeg - repmat(anglesMean,[1 1 stanceNumber]) );
     tmp = anglesDev(:,[1 3],:) < repmat( stdNumberAngles*anglesStd(:,[1 3]), [1 1 stanceNumber] );
     goodStepsAngles = squeeze( all( sum( tmp, 1 ) / stanceNumber > percentageThresAngles, 2 ) );
 
     % good torques
     stdNumberTorques = 1.5;
-    percentageThresTorques = 0.8;
+    percentageThresTorques = 0.9;
     torquesDev = abs( torquesSeg - repmat(torquesMean,[1 1 stanceNumber]) );
     tmp = torquesDev(:,[1 3],:) < repmat( stdNumberTorques*torquesStd(:,[1 3]), [1 1 stanceNumber] );
     goodStepsTorques = squeeze( all( sum( tmp, 1 ) / stanceNumber > percentageThresTorques, 2 ) );
@@ -161,126 +166,32 @@ rows = bsxfun( @plus, -offset:-1, stanceInit )'; % during stances
 anglesAdd = permute( reshape( angles(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
 torquesAdd = permute( reshape( torques(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
 
-anglesFull = [anglesAdd(:,:,goodSteps); anglesSeg(:,:,goodSteps)];
-torquesFull = [torquesAdd(:,:,goodSteps); torquesSeg(:,:,goodSteps)];
+anglesFull = [anglesAdd; anglesSeg];
+torquesFull = [torquesAdd; torquesSeg];
 
-anglesSegDP = squeeze( anglesFull(:,3,:) )';
-torquesSegDP = squeeze( torquesFull(:,3,:) )';
-anglesSegIE = squeeze( anglesFull(:,1,:) )';
-torquesSegIE = squeeze( torquesFull(:,1,:) )';
+anglesSegDP = squeeze( anglesFull(:,3,goodSteps) )';
+torquesSegDP = squeeze( torquesFull(:,3,goodSteps) )';
+anglesSegIE = squeeze( anglesFull(:,1,goodSteps) )';
+torquesSegIE = squeeze( torquesFull(:,1,goodSteps) )';
 
-plot(torquesSegDP' )
-
-%%
-offset = 100;
-rows = bsxfun( @plus, -offset:-1, stanceInit )'; % during stances
-anglesAdd = permute( reshape( angles(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
-torquesAdd = permute( reshape( torques(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
-
-anglesFull = [anglesAdd(:,:,goodSteps); anglesSeg(:,:,goodSteps)];
-torquesFull = [torquesAdd(:,:,goodSteps); torquesSeg(:,:,goodSteps)];
-
-anglesSegDP = squeeze( anglesFull(:,3,:) )';
-torquesSegDP = squeeze( torquesFull(:,3,:) )';
-anglesSegIE = squeeze( anglesFull(:,1,:) )';
-torquesSegIE = squeeze( torquesFull(:,1,:) )';
-
+figure;
 plot(torquesSegDP' )
 
 %%
 
 figure;
-subplot(211); shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,3,:),3))', 2*nanstd(anglesSeg(:,3,:),[],3)', 'b', 1 )
-hold on; shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,3,goodSteps),3))', 2*nanstd(anglesSeg(:,3,goodSteps),[],3)', 'r', 1 )
-subplot(212); shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,1,:),3))', 2*nanstd(anglesSeg(:,1,:),[],3)', 'b', 1 )
-hold on; shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,1,goodSteps),3))', 2*nanstd(anglesSeg(:,1,goodSteps),[],3)', 'r', 1 )
+subplot(221); shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
+subplot(223); shadedErrorBar( [], nanmean(anglesSegIE)', 1*nanstd(anglesSegIE,[],1)', 'r', 1 )
+subplot(222); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
+subplot(224); shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
 
 figure;
-subplot(211); shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,3,:),3))', 2*nanstd(torquesSeg(:,3,:),[],3)', 'b', 1 )
-hold on; shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,3,goodSteps),3))', 2*nanstd(torquesSeg(:,3,goodSteps),[],3)', 'r', 1 )
-subplot(212); shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,1,:),3))', 2*nanstd(torquesSeg(:,1,:),[],3)', 'b', 1 )
-hold on; shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,1,goodSteps),3))', 2*nanstd(torquesSeg(:,1,goodSteps),[],3)', 'r', 1 )
+subplot(211);
+shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
+hold on; shadedErrorBar( [], nanmean(anglesSegIE)', 1*nanstd(anglesSegIE,[],1)', 'r', 1 )
+title('Angle')
+subplot(212); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
+hold on; shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
+title('Torque')
 
-% figure;
-% subplot(311); plot( squeeze( anglesSeg(:,1,~goodSteps) ) )
-% subplot(312); plot( squeeze( anglesSeg(:,2,~goodSteps) ) )
-% subplot(313); plot( squeeze( anglesSeg(:,3,~goodSteps) ) )
-% 
-% figure;
-% subplot(311); plot( squeeze( torquesSeg(:,1,~goodSteps) ) )
-% subplot(312); plot( squeeze( torquesSeg(:,2,~goodSteps) ) )
-% subplot(313); plot( squeeze( torquesSeg(:,3,~goodSteps) ) )
-% 
-% anglesSeries = timeseries( anglesSeg );
-% torquesSeries = timeseries( torquesSeg );
-% aStd = std( anglesSeries );
-% aMean = mean( anglesSeries );
-% tStd = std( torquesSeries );
-% tMean = mean( torquesSeries );
-% 
-% figure;
-% subplot(311); shadedErrorBar( [], aMean(:,1), 2*aStd(:,1), 'b' )
-% subplot(312); shadedErrorBar( [], aMean(:,2), 2*aStd(:,2), 'r' )
-% subplot(313); shadedErrorBar( [], aMean(:,3), 2*aStd(:,3), 'y' )
-% 
-% figure;
-% subplot(311); shadedErrorBar( [], tMean(:,1), 2*tStd(:,1), 'b' )
-% subplot(312); shadedErrorBar( [], tMean(:,2), 2*tStd(:,2), 'r' )
-% subplot(313); shadedErrorBar( [], tMean(:,3), 2*tStd(:,3), 'y' )
-% 
-% figure;
-% subplot(311); plot( squeeze( anglesSeg(:,1,:) ) )
-% subplot(312); plot( squeeze( anglesSeg(:,2,:) ) )
-% subplot(313); plot( squeeze( anglesSeg(:,3,:) ) )
-% 
-% figure;
-% subplot(311); plot( squeeze( torquesSeg(:,1,:) ) )
-% subplot(312); plot( squeeze( torquesSeg(:,2,:) ) )
-% subplot(313); plot( squeeze( torquesSeg(:,3,:) ) )
 
-anglesSegDP = squeeze( anglesSeg(:,3,goodSteps) )';
-torquesSegDP = squeeze( torquesSeg(:,3,goodSteps) )';
-anglesSegIE = squeeze( anglesSeg(:,1,goodSteps) )';
-torquesSegIE = squeeze( torquesSeg(:,1,goodSteps) )';
-
-%%
-
-y2 = torquesSegDP;
-y1 = mean( torquesSegDP, 1 );
-
-nmax = 25;
-delay = -nmax : 1 : nmax;
-rms = zeros( size(delay) );
-nn = (1 : length(y1))';
-rows = nn > 100+nmax & nn < length(nn)-nmax;
-rowsSave = nmax : length(y1)-nmax;
-
-tic
-clear y3 delayCalc anglesSyncDP anglesSyncIE torquesSyncDP torquesSyncIE
-for channel = 1 : size( y2, 1 ) 
-    yy = y2(channel,:);
-    for n = 1 : length( delay )
-        rms(n) = sqrt( sum( (y1(rows) - yy( circshift(rows, delay(n)) )).^2  ));
-    end
-    [~,iOpt] = min( rms );
-    delayCalc(channel) = delay(iOpt);
-    y3(:,channel) = yy( delay(iOpt)+rowsSave);
-    
-    anglesSyncDP(channel,:) = anglesSegDP(channel,delay(iOpt)+rowsSave);
-    anglesSyncIE(channel,:) = anglesSegIE(channel,delay(iOpt)+rowsSave);
-    torquesSyncDP(channel,:) = torquesSegDP(channel,delay(iOpt)+rowsSave);
-    torquesSyncIE(channel,:) = torquesSegIE(channel,delay(iOpt)+rowsSave);
-end
-toc
-
-figure;
-subplot(211); shadedErrorBar( [], mean(torquesSegDP(:,rowsSave)',2), 2*std(torquesSegDP(:,rowsSave)',[],2), 'b', 1 )
-hold on; shadedErrorBar( [], mean(torquesSyncDP(:,:)',2), 2*std(torquesSyncDP(:,:)',[],2), '--r', 1 )
-subplot(212); shadedErrorBar( [], mean(torquesSegIE(:,rowsSave)',2), 2*std(torquesSegIE(:,rowsSave)',[],2), 'b' )
-hold on; shadedErrorBar( [], mean(torquesSyncIE(:,:)',2), 2*std(torquesSyncIE(:,:)',[],2), '--r', 1 )
-
-figure;
-subplot(211); shadedErrorBar( [], mean(anglesSegDP(:,rowsSave)',2), 2*std(anglesSegDP(:,rowsSave)',[],2), 'b', 1 )
-hold on; shadedErrorBar( [], mean(anglesSyncDP',2), 2*std(anglesSyncDP',[],2), '--r', 1 )
-subplot(212); shadedErrorBar( [], mean(anglesSegIE(:,rowsSave)',2), 2*std(anglesSegIE(:,rowsSave)',[],2), 'b', 1 )
-hold on; shadedErrorBar( [], mean(anglesSyncIE',2), 2*std(anglesSyncIE',[],2), '--r', 1 )
