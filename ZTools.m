@@ -7,6 +7,7 @@ classdef ZTools
         centroid4Markers = -[0.033624698258992   0.000652664546980  -0.000157121850220];
         standardLogFile = 'vibratingPlatformReference.csv';
         subjectFileName = 'subjectFile.csv';
+        testFileName = 'testFile.csv';
     end
     
     methods
@@ -14,7 +15,187 @@ classdef ZTools
     
     methods(Static)
         
-        function createSubject()
+        function varargout = createTest(dataFolder)
+
+        %dataFolder = '/home/garamizo/Downloads/';
+
+        % Begin initialization code - DO NOT EDIT
+        f = figure('Visible','off','Position',[360,200,450,400],'Resize','off',...
+            'Name','Create Test','MenuBar','none');
+
+        loadbutton    = uicontrol('Style','pushbutton',...
+                     'String','Load','Position',[10,10,90,25],...
+                     'Callback', {@loadbutton_Callback});
+
+        lvmloadbutton    = uicontrol('Style','pushbutton',...
+                     'String','Load LVM','Position',[10,50,90,25],...
+                     'Callback', {@lvmloadbutton_Callback});
+
+        lvmtext = uicontrol('Style','edit','String', '', 'Position', [110 50 300 25], 'Enable', 'Off');
+
+        csvloadbutton    = uicontrol('Style','pushbutton',...
+                     'String','Load CSV','Position',[10,85,90,25],...
+                        'Callback', {@csvloadbutton_Callback});
+
+        csvtext = uicontrol('Style','edit','String', '', 'Position', [110 85 300 25], 'Enable', 'Off');
+
+
+        getsubjectbutton    = uicontrol('Style','pushbutton',...
+                     'String','Subject','Position',[10,130,90,25],...
+                        'Callback', {@getsubjectbutton_Callback});
+
+        subjecttext = uicontrol('Style','edit','String', '', 'Position', [110 130 300 25], 'Enable', 'Off');
+
+        data = {[], [], [], [], [], ''};
+        columnname = {'Type', 'Plate', 'R Shin', 'R Foot', 'FP type', 'Comments'};
+        columnformat = {{'TVZ','Gait'},{'RB1','RB2'}, {'RB1','RB2'}, {'RB1','RB2'},{'3 Markers','4 Markers','Gray'},'char'};
+        columnwidth = {60 120 120 120 120 400};
+        runtable = uitable('Data', data,... 
+                    'ColumnName', columnname,...
+                    'ColumnFormat', columnformat,...
+                    'RowName',[],...
+                    'ColumnEditable', true(1,6),...
+                    'ColumnWidth', columnwidth,...
+                    'Position',[10 90 400 100],...
+                    'Enable', 'Off');
+        runtable.Position = [10 175 runtable.Extent(3:4)];
+
+        f.Position(3:4) = runtable.Extent(3:4) + [20 190];
+        f.Visible = 'on';
+        subject = [];
+
+        varargout{1} = [];
+        uiwait();
+
+            % --- Executes on button press in savebutton.
+            function csvloadbutton_Callback(source, eventData)
+
+                [filename, pathname] = uigetfile([dataFolder '*.csv'], 'Browse the Optitrack (CSV) file.');
+
+                if filename ~=0
+                    if strfind( pathname, dataFolder ) == 1
+                        csvtext.String = [regexprep( pathname, dataFolder, filesep ) filename];
+
+                        hCSV = ZTools.readCSVHeader( [dataFolder csvtext.String] );
+                        runtable.ColumnFormat(2:4) = {{hCSV.RigidBody.name}};
+                        runtable.Enable = 'On';
+                    else
+                        error('Select from data folder');
+                    end
+                end
+            end
+
+            % --- Executes on button press in loadbutton.
+            function lvmloadbutton_Callback(source, eventData)
+            % hObject    handle to loadbutton (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+                [filename, pathname] = uigetfile([dataFolder '*.lvm'], 'Browse the LabVIEW (LVM) file.');
+
+                if filename ~= 0
+                    if strfind( pathname, dataFolder ) == 1
+                        lvmtext.String = [regexprep( pathname, dataFolder, filesep ) filename];
+                    else
+                        error('Select from data folder');
+                    end
+                end
+            end
+
+            % --- Executes on button press in loadbutton.
+            function getsubjectbutton_Callback(source, eventData)
+            % hObject    handle to loadbutton (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+                subject = ZTools.createSubject();
+                if ~isempty(subject)
+                    subjecttext.String = subject.Name;
+                end
+            end
+
+            % --- Executes on button press in loadbutton.
+            function loadbutton_Callback(source, eventData)
+            % hObject    handle to loadbutton (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+                try
+                    hCSV = ZTools.readCSVHeader( [dataFolder csvtext.String] );
+                    hLVM = ZTools.readLVMHeader( [dataFolder lvmtext.String] );
+
+                    if abs(seconds( hCSV.t0 - hLVM.t0 )) > 10
+                        error('Files are time incompatible');
+                    end
+
+                    if isempty(runtable.Data{1}) || isempty(runtable.Data{2}) || isempty(runtable.Data{3}) || ...
+                            isempty(runtable.Data{4}) || isempty(runtable.Data{5}) || isempty(runtable.Data{6})
+                        error('Missing table entry')
+                    end
+                    varargout{1}.type = runtable.Data{1};
+                    varargout{1}.plateAlias = runtable.Data{2};
+                    varargout{1}.rShinAlias = runtable.Data{3};
+                    varargout{1}.rFootAlias = runtable.Data{4};
+                    idx = find(strcmp( runtable.Data{5}, {'3 Markers','4 Markers','Gray'} ));
+                    offsets = [ZTools.centroid3Markers; ZTools.centroid4Markers; ZTools.centroid4Markers];
+                    varargout{1}.plateCentroidX = offsets(idx,1);
+                    varargout{1}.plateCentroidY = offsets(idx,2);
+                    varargout{1}.plateCentroidZ = offsets(idx,3);
+                    varargout{1}.comments = runtable.Data{6};
+                    varargout{1}.csvFile = csvtext.String;
+                    varargout{1}.lvmFile = lvmtext.String;
+                    varargout{1}.subjectKey = subject.Key;
+                    
+                    fileID = fopen( ZTools.testFileName, 'a+' );
+                    fprintf( fileID, '%s, %s, %s, %s, %f, %f, %f, %s, %s, %s, %d\n', ...
+                        runtable.Data{1:4}, offsets(idx,1), offsets(idx,2), offsets(idx,3),...
+                        runtable.Data{6}, csvtext.String, lvmtext.String, subject.Key );
+                    fclose( fileID );
+                
+                    close(source.Parent)
+
+                catch EM
+                    msgbox(EM.message, 'Error','error');
+                end
+            end
+        end
+        
+        function test = loadTest()
+            % {'Name', 'Age', 'Gender', 'Height', 'Shoe #', 'Email', 'Active'};
+
+            test = [];
+            fileID = fopen( ZTools.testFileName, 'r' );
+            if fileID ~= -1
+                A = textscan( fileID, '%s %s %s %s %f %f %f %s %s %s %d\n', Inf, 'Delimiter', ',' );
+                fclose( fileID );
+                for n = 1 : size(A{11},1)
+                    subject = ZTools.loadSubject(A{11}(n));
+                    name{n} = subject.Name;
+                end
+                word = strcat( name', ' -', A{:,1}, ' - ', A{:,8} );
+                
+                [idx,valid] = listdlg('PromptString','Select a subject as template:',...
+                                'SelectionMode','single',...
+                                'ListString',word,...
+                                'ListSize', [500 300] );
+                if valid
+                    %runtable.Data{1:4}, offsets(idx,1), offsets(idx,2), offsets(idx,3),...
+                        %runtable.Data{6}, csvtext.String, lvmtext.String, subject.Key 
+                    test.type = A{1}{idx};
+                    test.plateAlias = A{2}{idx};
+                    test.shinAlias = A{3}{idx};
+                    test.footAlias = A{4}{idx};
+                    test.plateCentroidX = A{5}(idx);
+                    test.plateCentroidY = A{6}(idx);
+                    test.plateCentroidZ = A{7}(idx);
+                    test.comments = A{8}{idx};
+                    test.csvFile = A{9}{idx};
+                    test.lvmFile = A{10}{idx};
+                    test.subjectKey = A{11}(idx);
+                end
+            else
+                msgbox('Test file is empty', 'Error','error');
+            end
+        end  
+    
+        function varargout = createSubject()
 
         % Begin initialization code - DO NOT EDIT
         f = figure('Visible','off','Position',[360,500,450,285],'Resize','off',...
@@ -44,51 +225,73 @@ classdef ZTools
 
         f.Position(3:4) = subjecttable.Extent(3:4) + [20 55];
         f.Visible = 'on';
+        
+        varargout{1} = [];
+        uiwait();
 
-            % --- Executes on button press in savebutton.
             function savebutton_Callback(source, eventData)
-            % hObject    handle to savebutton (see GCBO)
-            % eventdata  reserved - to be defined in a future version of MATLAB
-            % handles    structure with handles and user data (see GUIDATA)
-            % hObject
-            % eventdata
-            fileID = fopen( ZTools.subjectFileName, 'r' );
-            if fileID ~= -1
-                A = textscan( fileID, '%s %d %s %d %s %s %d %d', Inf, 'Delimiter', ',' );
+                fileID = fopen( ZTools.subjectFileName, 'r' );
+                if fileID ~= -1
+                    A = textscan( fileID, '%s %d %s %d %s %s %d %d', Inf, 'Delimiter', ',' );
+                    fclose( fileID );
+                    key = max( A{end} ) + 1;
+                else
+                    key = 0;
+                end
+
+                fileID = fopen( ZTools.subjectFileName, 'a+' );
+                fprintf( fileID, '%s, %d, %s, %d, %s, %s, %d, %d\n', subjecttable.Data{1,:}, key );
                 fclose( fileID );
-                key = max( A{end} ) + 1;
-            else
-                key = 0;
+                subject = ZTools.loadSubject(key);
+                varargout{1} = subject;
+                close(source.Parent);
             end
 
-            fileID = fopen( ZTools.subjectFileName, 'a+' );
-            fprintf( fileID, '%s, %d, %s, %d, %s, %s, %d, %d\n', subjecttable.Data{1,:}, key );
-            fclose( fileID );
-
-            end
-
-            % --- Executes on button press in loadbutton.
             function loadbutton_Callback(source, eventData)
-            % hObject    handle to loadbutton (see GCBO)
-            % eventdata  reserved - to be defined in a future version of MATLAB
-            % handles    structure with handles and user data (see GUIDATA)
+                subject = ZTools.loadSubject();
+                if ~isempty( subject )
+                    subjecttable.Data = {subject.Name,...
+                        subject.Age, subject.Gender, subject.Height,...
+                        subject.ShoeSize, subject.Email, subject.Active};
+                end
+                varargout{1} = subject;
+                pause(0.5);
+                close(source.Parent);
+            end
+        end
+        
+        function subject = loadSubject(varargin)
+            % {'Name', 'Age', 'Gender', 'Height', 'Shoe #', 'Email', 'Active'};
+
+            subject = [];
             fileID = fopen( ZTools.subjectFileName, 'r' );
             if fileID ~= -1
                 A = textscan( fileID, '%s %d %s %d %s %s %d %d', Inf, 'Delimiter', ',' );
                 fclose( fileID );
                 names = A{:,1};
-                [idx,valid] = listdlg('PromptString','Select a subject as template:',...
-                                'SelectionMode','single',...
-                                'ListString',names,...
-                                'ListSize', [300 300] );
+                if nargin == 0
+                    [idx,valid] = listdlg('PromptString','Select a subject as template:',...
+                                    'SelectionMode','single',...
+                                    'ListString',names,...
+                                    'ListSize', [300 300] );
+                else
+                    idx = find( A{8} == varargin{1} );
+                    valid = length( idx ) == 1;
+                end
                 if valid
-                    subjecttable.Data = {A{1}{idx}, A{2}(idx), A{3}{idx}, A{4}(idx), A{5}{idx}, A{6}{idx}, A{7}(idx)>0};
+                    subject.Name = A{1}{idx};
+                    subject.Age = A{2}(idx);
+                    subject.Gender = A{3}{idx};
+                    subject.Height = A{4}(idx);
+                    subject.ShoeSize = A{5}{idx};
+                    subject.Email = A{6}{idx};
+                    subject.Active = A{7}(idx)>0;
+                    subject.Key = A{8}(idx);
                 end
             else
                 msgbox('Subject file is empty', 'Error','error');
             end
-            end
-        end
+        end          
         
         function tbl = createLogTable( fileName, save )
             
@@ -129,120 +332,13 @@ classdef ZTools
             end
         end
         
-        function test = newTest( varargin )
-            
-            if nargin == 1
-                logFile = varargin{1};
-            else
-                logFile = ZTools.standardLogFile;
-            end
-            
-            [filename, pathname] = uigetfile('*.csv;*.lvm', 'Browse the camera system (CSV) and LabVIEW (LVM) file.', 'MultiSelect', 'on');
-
-            if strcmp( class(filename), 'cell' ) && length(filename) == 2
-                if strcmp( lower(filename{1}(end-3:end)), '.csv' ) && strcmp( lower(filename{2}(end-3:end)), '.lvm' )
-                    csvFile = [pathname filename{1}];
-                    lvmFile = [pathname filename{2}];
-                elseif strcmp( lower(filename{2}(end-3:end)), '.csv' ) && strcmp( lower(filename{1}(end-3:end)), '.lvm' )
-                    csvFile = [pathname filename{2}];
-                    lvmFile = [pathname filename{1}];
-                else
-                    error('Wrong file types')
-                end
-            else
-                error('Didnt pick two files')
-            end
-            
-%%
-            %test = table();
-            test.id = ['sample test ' datestr(now)];
-            test.name = 'Evandro Ficanha';
-            test.age = 27;
-            test.gender = 'M';
-            test.height = 1.85;
-            test.shoeSize = '11 M';
-            test.email = 'eficanh@mtu.edu';
-            test.lifeStyle = 'active';
-            test.testType = 'Time Varying Impedance';
-            test.comments = 'sample file';
-            test.csvFile = csvFile;
-            test.lvmFile = lvmFile;
-            test.plateAlias = 'Rigid Body 1';
-            test.rShinAlias = 'Rigid Body 2';
-            test.rFootAlias = 'Rigid Body 3';
-            test.plateCentroidX = ZTools.centroid4Markers(1);
-            test.plateCentroidY = ZTools.centroid4Markers(2);
-            test.plateCentroidZ = ZTools.centroid4Markers(3);
-            
-            tbl = readtable( logFile );
-            writetable( [ tbl; struct2table(test) ], logFile );
-            %%
-
-%             h = ZTools.readCSVHeader( csvFile );
-% 
-%             answer = inputdlg({'Subject','Comments','Plate index','Shin index','Foot index'}, 'New experiment', [1 50]);
-%             answer = regexprep( answer, ',', '' ); % comma is not allowed
-%             
-%             subject = answer{1};
-%             comments = answer{2};
-%             plateIndex = str2num( answer{3} );
-%             rSheenIndex = str2num( answer{4} );
-%             rFootIndex = str2num( answer{5} );
-%             offsetPlate = -ZTools.centroid4Markers;
-% 
-%             fid = fopen( logFile, 'a+' );
-% 
-%             fprintf( fid, '%s, %s, %s, %s, %s, %d, %d, %d, %f, %f, %f\n', [subject ' | ' h.TakeName ' | ' comments], ...
-%                 subject, comments, csvFile, lvmFile, plateIndex, rSheenIndex, rFootIndex, ...
-%                 offsetPlate(1), offsetPlate(2), offsetPlate(3) );
-% 
-%             fclose(fid);
-% 
-%             test = struct( 'csvFile', csvFile, 'lvmFile', lvmFile, 'plateIndex', plateIndex, ...
-%                 'rSheenIndex', rSheenIndex, 'rFootIndex', rFootIndex, 'comments', comments, ...
-%                 'offsetPlate', offsetPlate, 'csvHeader', h );
-        end
-        
-        function test = loadTest( varargin )
-            
-            if nargin == 1
-                logFile = varargin{1};
-            else
-                logFile = ZTools.standardLogFile;
-            end
-            tbl = readtable( logFile, 'HeaderLines', 0);
-
-            [index,v] = listdlg('PromptString','Select a file:',...
-                            'SelectionMode','single',...
-                            'ListString',tbl.id, ...
-                            'ListSize', [600 300]);
-
-            if v == 1              
-                test.csvFile = tbl.csvFile{index};
-                test.lvmFile = tbl.lvmFile{index};
-                test.plateAlias = tbl.plateAlias{index};
-                test.rShinAlias = tbl.rShinAlias{index};
-                test.rFootAlias = tbl.rFootAlias{index};
-                test.plateCentroidX = tbl.plateCentroidX(index);
-                test.plateCentroidY = tbl.plateCentroidY(index);
-                test.plateCentroidZ = tbl.plateCentroidZ(index);
-            else
-                error('File not selected')
-            end
-        end
-        
         function [tbl, header] = readCSV( csvFile )
 
             tbl = readtable(csvFile, 'HeaderLines', 6);
             header = ZTools.readCSVHeader( csvFile );
             vec = datevec( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
-            header.t0 = vec * [0 0 0 60^2 60 1]';
-            header.fs = header.ExportFrameRate;
-            
-            % Fix Optitrack dating bug
-            if vec(4) == 00 && ~isempty( strfind( header.CaptureStartTime, 'AM' ) )
-                header.t0 = header.t0 + 12*60^2;
-            end         
+            %header.t0 = vec * [0 0 0 60^2 60 1]';
+            header.fs = header.ExportFrameRate;      
         end
         
         function header = readCSVHeader( csvFile )
@@ -258,6 +354,15 @@ classdef ZTools
             header.CaptureStartTime = lineSpl{10};
             header.TotalFrames = str2double( lineSpl{12} );
             header.RotationType = lineSpl{14};
+            
+            % Fix Optitrack dating bug
+            vec = datevec( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
+            if vec(4) == 00 && ~isempty( strfind( header.CaptureStartTime, 'AM' ) )
+                header.CaptureStartTime = regexprep( header.CaptureStartTime, 'AM', 'PM' );
+            end    
+            
+            %header.t0 = datenum( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
+            header.t0 = datetime( header.CaptureStartTime, 'InputFormat', 'yyyy-M-dd h.m.s.SSS a' );
             
             fgets(fid);
             entities = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
@@ -302,6 +407,8 @@ classdef ZTools
             end
             
             fclose(fid);
+            
+
         end
         
         function yFill = fillGaps( y, threshold )
@@ -323,22 +430,155 @@ classdef ZTools
 
         function [tbl, header] = readLVM( fileName )
             
-            header = lvm_import( fileName );
+            header = lvm_import( fileName, 0 );
             tbl = array2table( header.Segment1.data );
-            header.t0 = datevec(header.Time) * [0 0 0 60*60 60 1]';
+            %header.t0 = datevec(header.Time) * [0 0 0 60*60 60 1]';
+            header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
             header.fs = mean( 1./diff(tbl{:,1}) );
             if std( 1./diff(tbl{:,1}) ) > header.fs/10
                 error('High variance in sampling time.')
             end
+        end
+        
+        function header = readLVMHeader( fileName )
+            verbose = 0;
+            % message level
+            if verbose >= 1, fprintf(1,'\nlvm_import v2.2\n'); end
+
+            % ask for filename if not provided already
+            if nargin < 1
+                fileName=input(' Enter the name of the .lvm file: ','s');
+                fprintf(1,'\n');
+            end
+
+
+            %% Open the data file
+            % open and verify the file
+            fid=fopen(fileName);
+            if fid ~= -1, % then file exists
+                fclose(fid);
+            else
+                filename=strcat(fileName,'.lvm');
+                fid=fopen(fileName);
+                if fid ~= -1, % then file exists
+                    fclose(fid);
+                else
+                    error(['File not found in current directory! (' pwd ')']);
+                end
+            end
+
+            % open the validated file
+            fid=fopen(fileName);
+
+            if verbose >= 1, fprintf(1,' Importing %s:\n\n',filename); end
+            if verbose >= 2, fprintf(1,' File Header:\n'); end
+
+            % is it really a LVM file?
+            linein=fgetl(fid);
+            if verbose >= 2, fprintf(1,'%s\n',linein); end
+            if ~strcmp(sscanf(linein,'%s'),'LabVIEWMeasurement')
+                try
+                    data.Segment1.data = dlmread(filename,'\t');
+                    if verbose >= 1, fprintf(1,'This file appears to be an LVM file with no header.\n'); end
+                    if verbose >= 1, fprintf(1,'Data was copied, but no other information is available.\n'); end
+                    return
+                catch fileEx
+                    error('This does not appear to be a text-format LVM file (no header).');
+                end
+            end
+
+
+            %% Process file header
+            % The file header contains several fields with useful information
+
+            % default values
+            data.Decimal_Separator = '.';
+            text_delimiter='\t';
+            data.X_Columns='One';
+
+            % File header contains date, time, etc.
+            % Also the file delimiter and decimal separator (LVM v2.0)
+            while 1 
+
+                % get a line from the file
+                linein=fgetl(fid);
+                % handle spurious carriage returns
+                if isempty(linein), linein=fgetl(fid); end
+                if verbose >= 2, fprintf(1,'%s\n',linein); end
+                % what is the tag for this line?
+                t_in = textscan(linein,'%s');
+                if isempty(t_in{1})
+                    tag='notag';
+                else
+                    tag = t_in{1}{1};
+                end
+                % exit when we reach the end of the header
+                if strcmpi(tag,'***End_of_Header***')
+                    if verbose >= 2, fprintf(1,'\n'); end
+                    break
+                end
+
+                % get the value corresponding to the tag
+                if ~strcmp(tag,'notag')
+                    v_in = textscan(linein,'%*s %s','delimiter','\t','whitespace','','MultipleDelimsAsOne', 1);
+                    if ~isempty(v_in{1})
+                        val = v_in{1}{1};
+
+                        switch tag
+                            case 'Date'
+                                data.Date = val;
+                            case 'Time'
+                                data.Time = val;
+                            case 'Operator'
+                                data.user = val;
+                            case 'Description'
+                                data.Description = val;
+                            case 'Project'
+                                data.Project = val;            
+                            case 'Separator'
+                                if strcmp(val,'Tab')
+                                    text_delimiter='\t';
+                                elseif strcmp(val,'Comma')
+                                    text_delimiter=',';
+                                end
+                            case 'X_Columns'
+                                data.X_Columns = val;
+                            case 'Decimal_Separator'
+                                data.Decimal_Separator = val;
+                        end
+
+                    end
+                end    
+
+            end
+
+            % create matlab-formatted date vector
+            if isfield(data,'time') && isfield(data,'date')
+                dt = textscan(data.Date,'%d','delimiter','/');
+                tm = textscan(data.Time,'%d','delimiter',':');
+                if length(tm{1})==3
+                    data.clock=[dt{1}(1) dt{1}(2) dt{1}(3) tm{1}(1) tm{1}(2) tm{1}(3)];
+                elseif length(tm{1})==2
+                    data.clock=[dt{1}(1) dt{1}(2) dt{1}(3) tm{1}(1) tm{1}(2) 0];
+                else
+                    data.clock=[dt{1}(1) dt{1}(2) dt{1}(3) 0 0 0];
+                end
+            end 
+            header = data;
+            fclose(fid);
+            
+            %'yyyy-mm-dd HH.MM.SS.FFF PM'
+            %header.t0 = datenum( [header.Date ' ' header.Time] );
+            header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
         end
 
         function [tblaa, tblbb, t, f, t0] = synchronizeTables( tbla, t0a, fa, tblb, t0b, fb )
         %synchronizeTables Resample and sync table B into table A
         %   Table A has lower sampling frequency
 
-            % absolute time
-            ta = t0a + ( 0:size(tbla,1)-1 ) / fa;
-            tb = t0b + ( 0:size(tblb,1)-1 ) / fb;
+            % t0a is the reference
+            ta = ( 0:size(tbla,1)-1 ) / fa;
+            tb = seconds( t0b - t0a) + ( 0:size(tblb,1)-1 ) / fb;
             
             if ta(1) > tb(end) || ta(end) < tb(1)
                 error('Files are time incompatible')
@@ -347,7 +587,7 @@ classdef ZTools
             factor = round( fb / fa );
 
             tblbFilt = filter( ones(1,factor)/factor, 1, table2array(tblb) );
-            tbFilt = filter( ones(1,factor)/factor, 1, tb-t0b ) + t0b; % carefull with 0 ic effect
+            tbFilt = filter( ones(1,factor)/factor, 1, tb-tb(1) ) + tb(1); % carefull with 0 ic effect
 
             tblbb = interp1( tbFilt, tblbFilt, ta, 'pchip', NaN );
 
@@ -384,26 +624,6 @@ classdef ZTools
                         header.RigidBody(idx).index.RotationX
                         header.RigidBody(idx).index.RotationY
                         header.RigidBody(idx).index.RotationZ] );
-        end
-
-        function [Pplate, Qplate, Psheen, Qsheen, Pfoot, Qfoot] = parseCamTable( tbl, header, bodyAliases )
-            
-            if isa( tbl, 'table' )
-                tbl = table2array( tbl );
-            end
-            
-%             idxPlate = strcmp
-
-            % define offset
-            os.pos = [4 5 6];
-            os.qua = [3 0 1 2];
-
-            [Pplate, Qplate] = deal( tbl(:,os.pos+param.plateIndex), tbl(:,os.qua+param.plateIndex) );
-            [Psheen, Qsheen] = deal( tbl(:,os.pos+param.rSheenIndex), tbl(:,os.qua+param.rSheenIndex) );
-            [Pfoot, Qfoot] = deal( tbl(:,os.pos+param.rFootIndex), tbl(:,os.qua+param.rFootIndex) );
-
-            % Move force plate RF
-            Pplate = Pplate + quatrotate( quatinv(Qplate), param.offsetPlate );
         end
 
         function [ra, rb] = calculateJointPosition( Pa, Qa, Pb, Qb )

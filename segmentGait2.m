@@ -1,18 +1,20 @@
 clear; clc
 
 nFiles = 4;
+dataFolder = '/home/garamizo/Downloads/';
 
 % load files
 for n = 1 : nFiles
     %tests(n) = ZTools.newTest();
     tests(n) = ZTools.loadTest();
+    %tests(n) = ZTools.createTest(dataFolder);
 end
 %%
 for n = 1 : nFiles
     test = tests(n);
     
-[tblCam, headerCam] = ZTools.readCSV( test.csvFile );
-[tblPlate, headerPlate] = ZTools.readLVM( test.lvmFile );
+[tblCam, headerCam] = ZTools.readCSV( [dataFolder test.csvFile] );
+[tblPlate, headerPlate] = ZTools.readLVM( [dataFolder test.lvmFile] );
 
 %camTableClean = ZTools.removeNaN( tblCam );
 camTableClean = tblCam;
