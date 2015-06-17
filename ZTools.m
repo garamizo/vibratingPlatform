@@ -74,7 +74,7 @@ classdef ZTools
 
                 if filename ~=0
                     if strfind( pathname, dataFolder ) == 1
-                        csvtext.String = [regexprep( pathname, dataFolder, filesep ) filename];
+                        csvtext.String = [strrep( pathname, dataFolder, filesep ) filename];
 
                         hCSV = ZTools.readCSVHeader( [dataFolder csvtext.String] );
                         runtable.ColumnFormat(2:4) = {{hCSV.RigidBody.name}};
@@ -94,7 +94,7 @@ classdef ZTools
 
                 if filename ~= 0
                     if strfind( pathname, dataFolder ) == 1
-                        lvmtext.String = [regexprep( pathname, dataFolder, filesep ) filename];
+                        lvmtext.String = [strrep( pathname, dataFolder, filesep ) filename];
                     else
                         error('Select from data folder');
                     end
@@ -334,6 +334,7 @@ classdef ZTools
         
         function [tbl, header] = readCSV( csvFile )
 
+            csvFile = regexprep( csvFile, {'\','/'}, {filesep,filesep} );
             tbl = readtable(csvFile, 'HeaderLines', 6);
             header = ZTools.readCSVHeader( csvFile );
             vec = datevec( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
@@ -343,6 +344,7 @@ classdef ZTools
         
         function header = readCSVHeader( csvFile )
             
+            %csvFile = regexprep( csvFile, {'\','/'}, {filesep,filesep} );
             fid = fopen(csvFile);
 
             lineSpl = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
@@ -430,6 +432,7 @@ classdef ZTools
 
         function [tbl, header] = readLVM( fileName )
             
+            fileName = regexprep( fileName, {'\','/'}, {filesep,filesep} );
             header = lvm_import( fileName, 0 );
             tbl = array2table( header.Segment1.data );
             %header.t0 = datevec(header.Time) * [0 0 0 60*60 60 1]';
@@ -441,6 +444,8 @@ classdef ZTools
         end
         
         function header = readLVMHeader( fileName )
+            
+            fileName = regexprep( fileName, {'\','/'}, {filesep,filesep} );
             verbose = 0;
             % message level
             if verbose >= 1, fprintf(1,'\nlvm_import v2.2\n'); end
