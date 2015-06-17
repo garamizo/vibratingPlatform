@@ -180,8 +180,8 @@ classdef ZTools
                         %runtable.Data{6}, csvtext.String, lvmtext.String, subject.Key 
                     test.type = A{1}{idx};
                     test.plateAlias = A{2}{idx};
-                    test.shinAlias = A{3}{idx};
-                    test.footAlias = A{4}{idx};
+                    test.rShinAlias = A{3}{idx};
+                    test.rFootAlias = A{4}{idx};
                     test.plateCentroidX = A{5}(idx);
                     test.plateCentroidY = A{6}(idx);
                     test.plateCentroidZ = A{7}(idx);
