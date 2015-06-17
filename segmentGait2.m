@@ -6,8 +6,8 @@ dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\
 % load files
 for n = 1 : nFiles
     %tests(n) = ZTools.newTest();
-    %tests(n) = ZTools.loadTest();
-    tests(n) = ZTools.createTest(dataFolder);
+    tests(n) = ZTools.loadTest();
+    %tests(n) = ZTools.createTest(dataFolder);
 end
 %%
 for n = 1 : nFiles
@@ -84,7 +84,8 @@ saw = detrend(cumsum(z));
 [~, indexInit] = findpeaks( -saw, 'MinPeakWidth', round(0.3*300) );
 [~, indexEnd] = findpeaks( saw, 'MinPeakWidth', round(0.3*300) );
 
-figure; plot( nn, z, nn(indexInit), 100, 'x' )
+figure; subplot(211); plot( nn, z, nn(indexInit), 100, 'x' )
+subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'x' )
 
 offset = zeros(size(indexInit));
 
