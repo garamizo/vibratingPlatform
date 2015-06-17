@@ -1,12 +1,14 @@
 %% Create new experimental file entry
-%test = ZTools.newTest();
+dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests\';
+test = ZTools.createTest( dataFolder );
+test = ZTools.loadTest();
 
 %% Load file
 %test = ZTools.loadTest();
 
 %% Pre-process the raw data
-[tblCam, headerCam] = ZTools.readCSV( test.csvFile );
-[tblPlate, headerPlate] = ZTools.readLVM( test.lvmFile );
+[tblCam, headerCam] = ZTools.readCSV( [dataFolder test.csvFile] );
+[tblPlate, headerPlate] = ZTools.readLVM( [dataFolder test.lvmFile] );
 
 %camTableClean = ZTools.removeNaN( tblCam );
 camTableClean = tblCam;
@@ -76,16 +78,16 @@ torques = quatrotate( Qfoot, cross( r1, F1 ) + cross( r2, F2 ) + cross( r3, F3 )
 %% Calculate impedance
 
 % ========================================================
-rows = t > 3 & t < t(end)-3 & all(~isnan([angles torques]),2);
+rows = t > 3 & t < t(end)-3;
 
-ang_DP = detrend(angles(rows,3));
-torque_DP = detrend(torques(rows,3));
+ang_DP = (angles(rows,3));
+torque_DP = (torques(rows,3));
 
-ang_IE = detrend(angles(rows,1));
-torque_IE = detrend(torques(rows,1));
+ang_IE = (angles(rows,1));
+torque_IE = (torques(rows,1));
 
-ang_ML = detrend(angles(rows,2));
-torque_ML = detrend(torques(rows,2));
+ang_ML = (angles(rows,2));
+torque_ML = (torques(rows,2));
 
 % load the vectors ang_dp  ang_ie tdp and  tie, the rest should work
 ang_dp = ang_DP;

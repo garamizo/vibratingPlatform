@@ -1,13 +1,13 @@
 clear; clc
 
 nFiles = 4;
-dataFolder = '/home/garamizo/Downloads/';
+dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests';
 
 % load files
 for n = 1 : nFiles
     %tests(n) = ZTools.newTest();
-    tests(n) = ZTools.loadTest();
-    %tests(n) = ZTools.createTest(dataFolder);
+    %tests(n) = ZTools.loadTest();
+    tests(n) = ZTools.createTest(dataFolder);
 end
 %%
 for n = 1 : nFiles
