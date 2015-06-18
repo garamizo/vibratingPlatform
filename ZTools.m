@@ -293,49 +293,10 @@ classdef ZTools
             end
         end          
         
-        function tbl = createLogTable( fileName, save )
-            
-            if isempty( fileName )
-                fileName = ZTools.standardLogFile;
-            end
-            
-            tbl = table();
-
-            %tbl.id = ['sample test ' datestr(now)];
-            tbl.name = 'Evandro Ficanha';
-            tbl.age = 27;
-            tbl.gender = 'M';
-            tbl.height = 1.85;
-            tbl.shoeSize = '11 M';
-            tbl.email = 'eficanh@mtu.edu';
-            tbl.lifeStyle = 'active';
-            
-            tbl.testType = 'Time Varying Impedance';
-            tbl.comments = 'sample file';
-%             tbl.csvFile = [ pwd '/sample/stance/Take 2015-06-02 12.10.29 AM.csv' ];
-%             tbl.lvmFile = [ pwd '/sample/stance/raw_1.lvm' ];
-            tbl.csvFile = ['/home/garamizo/Downloads/test1April/Take 2015-04-01 01.45.11 PM.csv' ];
-            tbl.lvmFile = [ '/home/garamizo/Downloads/test1April/raw.lvm' ];
-            tbl.plateAlias = 'Rigid Body 1';
-            tbl.rShinAlias = 'Rigid Body 2';
-            tbl.rFootAlias = 'Rigid Body 1';
-            tbl.plateCentroidX = ZTools.centroid3Markers(1);
-            tbl.plateCentroidY = ZTools.centroid3Markers(2);
-            tbl.plateCentroidZ = ZTools.centroid3Markers(3);
-%             tbl.plateCentroidX = ZTools.centroid4Markers(1);
-%             tbl.plateCentroidY = ZTools.centroid4Markers(2);
-%             tbl.plateCentroidZ = ZTools.centroid4Markers(3);
-            test = tbl;
-            
-            if strcmp( save, 's' )
-                writetable(tbl, fileName);
-            end
-        end
-        
         function [tbl, header] = readCSV( csvFile )
 
             csvFile = regexprep( csvFile, {'\','/'}, {filesep,filesep} );
-            tbl = readtable(csvFile, 'HeaderLines', 6);
+            tbl = table2array( readtable(csvFile, 'HeaderLines', 6) );
             header = ZTools.readCSVHeader( csvFile );
             vec = datevec( header.CaptureStartTime, 'yyyy-mm-dd HH.MM.SS.FFF PM' );
             %header.t0 = vec * [0 0 0 60^2 60 1]';
@@ -344,7 +305,7 @@ classdef ZTools
         
         function header = readCSVHeader( csvFile )
             
-            %csvFile = regexprep( csvFile, {'\','/'}, {filesep,filesep} );
+            csvFile = regexprep( csvFile, {'\','/'}, {filesep,filesep} );
             fid = fopen(csvFile);
 
             lineSpl = deblank( strsplit( fgets(fid), ',', 'CollapseDelimiters', false ) );
@@ -433,12 +394,13 @@ classdef ZTools
         function [tbl, header] = readLVM( fileName )
             
             fileName = regexprep( fileName, {'\','/'}, {filesep,filesep} );
+            
             header = lvm_import( fileName, 0 );
-            tbl = array2table( header.Segment1.data );
-            %header.t0 = datevec(header.Time) * [0 0 0 60*60 60 1]';
+            tbl = header.Segment1.data;
+            
             header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
-            header.fs = mean( 1./diff(tbl{:,1}) );
-            if std( 1./diff(tbl{:,1}) ) > header.fs/10
+            header.fs = mean( 1./diff(tbl(:,1)) );
+            if std( 1./diff(tbl(:,1)) ) > header.fs/10
                 error('High variance in sampling time.')
             end
         end
@@ -591,7 +553,7 @@ classdef ZTools
 
             factor = round( fb / fa );
 
-            tblbFilt = filter( ones(1,factor)/factor, 1, table2array(tblb) );
+            tblbFilt = filter( ones(1,factor)/factor, 1, tblb );
             tbFilt = filter( ones(1,factor)/factor, 1, tb-tb(1) ) + tb(1); % carefull with 0 ic effect
 
             tblbb = interp1( tbFilt, tblbFilt, ta, 'pchip', NaN );
@@ -601,7 +563,7 @@ classdef ZTools
                 error('Tables dont have time intersect. Check CSV and LVM name files.')
             end
             
-            tblaa = tbla{ rows, : };
+            tblaa = tbla( rows, : );
             f = fa;
             tblbb = tblbb( rows, : );
             t = ta( rows );
@@ -611,10 +573,6 @@ classdef ZTools
         end
         
         function [P, Q] = extractBody( tbl, header, alias )
-            
-            if isa( tbl, 'table' )
-                tbl = table2array( tbl );
-            end
             
             idx = find( strcmp( {header.RigidBody.name}, alias ) );
             if isempty(idx) || length(idx) > 1
@@ -632,21 +590,19 @@ classdef ZTools
         end
 
         function [ra, rb] = calculateJointPosition( Pa, Qa, Pb, Qb )
-
-            % Method2: Minimizing transformed linear system
+            
             N = size( [Pa Qa Pb Qb], 1 );
             A = [ reshape( quat2dcm(Qa), [3 3*N] )', -reshape( quat2dcm(Qb), [3 3*N] )' ];
             Y = -( reshape( Pa', [3*N 1] ) - reshape( Pb', [3*N 1] ) );
-            rs = A \ Y;
             
-            mdl = fitlm(A, Y);
+            mdl = fitlm(A, Y, 'Intercept', false);
             disp(['R^2 = ' num2str(mdl.Rsquared.Adjusted)])
             if mdl.Rsquared.Adjusted < 0.8
                 error('Ankle point badly estimated');
             end
 
-            ra = rs(1:3); % common point from frame 1
-            rb = rs(4:6); % common point from frame 2
+            ra = mdl.Coefficients.Estimate(1:3); % common point from frame 1
+            rb = mdl.Coefficients.Estimate(4:6); % common point from frame 2
         end
 
         function [z1, z2, z3, z4, x12, x34, y14, y23] = parsePlateTable( tbl )

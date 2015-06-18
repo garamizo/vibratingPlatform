@@ -2,6 +2,7 @@ clear; clc
 
 nFiles = 4;
 dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests';
+dataFolder = '/home/garamizo/Downloads/';
 
 % load files
 for n = 1 : nFiles
@@ -16,15 +17,13 @@ for n = 1 : nFiles
 [tblCam, headerCam] = ZTools.readCSV( [dataFolder test.csvFile] );
 [tblPlate, headerPlate] = ZTools.readLVM( [dataFolder test.lvmFile] );
 
-%camTableClean = ZTools.removeNaN( tblCam );
-camTableClean = tblCam;
-camTableClean{:,:} = ZTools.fillGaps( tblCam{:,:}, 3 );
+camTableClean = ZTools.fillGaps( tblCam, 3 );
 
 [tblCamSync, tblPlateSync, t, f, t0] = ZTools.synchronizeTables( camTableClean, headerCam.t0, headerCam.fs, tblPlate, headerPlate.t0, headerPlate.fs );
 
 [Pplate,Qplate] = ZTools.extractBody( tblCamSync, headerCam, test.plateAlias );
 [Pshin,Qshin] = ZTools.extractBody( tblCamSync, headerCam, test.rShinAlias );
-[Pfoot,Qfoot] = ZTools.extractBody( tblCamSync, headerCam, test.rFootAlias    );
+[Pfoot,Qfoot] = ZTools.extractBody( tblCamSync, headerCam, test.rFootAlias );
 Pplate = Pplate + quatrotate( quatinv(Qplate), -[test.plateCentroidX test.plateCentroidY test.plateCentroidZ] );
 
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
@@ -84,10 +83,11 @@ saw = detrend(cumsum(z));
 [~, indexInit] = findpeaks( -saw, 'MinPeakWidth', round(0.3*300) );
 [~, indexEnd] = findpeaks( saw, 'MinPeakWidth', round(0.3*300) );
 
-figure; subplot(211); plot( nn, z, nn(indexInit), 100, 'x' )
-subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'x' )
+figure; subplot(211); plot( nn, z, nn(indexInit), z(indexInit), 'o', nn(indexEnd), z(indexEnd), 'x' )
+subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'o', nn(indexEnd), saw(indexEnd), 'x' )
 
 offset = zeros(size(indexInit));
+goodSteps = ones(size(indexInit)) > 0;
 
 for iter = 1 : 10
     
@@ -104,10 +104,10 @@ for iter = 1 : 10
     % Do not remove average
 
     % remove bad gaits
-    anglesMean = nanmean( anglesSeg, 3);
-    torquesMean = nanmean(torquesSeg, 3);
-    anglesStd = nanstd(anglesSeg, 0, 3);
-    torquesStd = nanstd(torquesSeg, 0, 3);
+    anglesMean = nanmean( anglesSeg(:,:,goodSteps), 3);
+    torquesMean = nanmean(torquesSeg(:,:,goodSteps), 3);
+    anglesStd = nanstd(anglesSeg(:,:,goodSteps), 0, 3);
+    torquesStd = nanstd(torquesSeg(:,:,goodSteps), 0, 3);
 
     % good angles
     stdNumberAngles = 1.5;
@@ -124,17 +124,6 @@ for iter = 1 : 10
     goodStepsTorques = squeeze( all( sum( tmp, 1 ) / stanceNumber > percentageThresTorques, 2 ) );
 
     goodSteps = goodStepsAngles & goodStepsTorques;
-    sum(goodSteps)/length(goodSteps)
-
-%     figure;
-%     subplot(221); shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,3,:),3))', 1*nanstd(anglesSeg(:,3,:),[],3)', 'b', 1 )
-%     hold on; shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,3,goodSteps),3))', 1*nanstd(anglesSeg(:,3,goodSteps),[],3)', 'r', 1 )
-%     subplot(222); shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,1,:),3))', 1*nanstd(anglesSeg(:,1,:),[],3)', 'b', 1 )
-%     hold on; shadedErrorBar( [], squeeze(nanmean(anglesSeg(:,1,goodSteps),3))', 1*nanstd(anglesSeg(:,1,goodSteps),[],3)', 'r', 1 )
-%     subplot(223); shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,3,:),3))', 1*nanstd(torquesSeg(:,3,:),[],3)', 'b', 1 )
-%     hold on; shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,3,goodSteps),3))', 1*nanstd(torquesSeg(:,3,goodSteps),[],3)', 'r', 1 )
-%     subplot(224); shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,1,:),3))', 1*nanstd(torquesSeg(:,1,:),[],3)', 'b', 1 )
-%     hold on; shadedErrorBar( [], squeeze(nanmean(torquesSeg(:,1,goodSteps),3))', 1*nanstd(torquesSeg(:,1,goodSteps),[],3)', 'r', 1 )
 
     % Fine tune sync
     y2 = squeeze(torquesSeg(:,3,:));
@@ -146,7 +135,6 @@ for iter = 1 : 10
     nn = (1 : length(y1))';
     rows = nn > nmax & nn < length(nn)-nmax;
 
-    tic
     clear y3 delayCalc anglesSyncDP anglesSyncIE torquesSyncDP torquesSyncIE
     offsetInc = zeros(size(offset));
     for channel = 1 : size( y2, 2 ) 
@@ -157,11 +145,11 @@ for iter = 1 : 10
         [~,iOpt] = min( rms );
         offsetInc(channel) = delay(iOpt);
     end
-    toc
     
     offset = offset + offsetInc;
-    [ sum(abs(offsetInc)) squeeze(sum(anglesStd,1)) squeeze(sum(torquesStd,1)) ]
 end
+
+disp( [num2str(sum(~goodSteps)) ' steps removed from ' num2str(stanceNumber)])
 
 %%
 offset = 100;
@@ -178,7 +166,11 @@ anglesSegIE = squeeze( anglesFull(:,1,goodSteps) )';
 torquesSegIE = squeeze( torquesFull(:,1,goodSteps) )';
 
 figure;
-plot(torquesSegDP' )
+plot(squeeze( anglesFull(:,1,goodSteps) ), 'b' )
+hold on
+plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
+
+
 
 %%
 
