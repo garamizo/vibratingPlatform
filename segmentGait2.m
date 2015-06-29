@@ -1,12 +1,14 @@
 clear; clc
 
-nFiles = 4;
+
 dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests';
-dataFolder = '/home/garamizo/Downloads/';
+% dataFolder = '/home/garamizo/Downloads/';
+% dataFolder = 'C:\Users\rastgaar\Desktop\';
+
+nFiles = 4;
 
 % load files
 for n = 1 : nFiles
-    %tests(n) = ZTools.newTest();
     tests(n) = ZTools.loadTest();
     %tests(n) = ZTools.createTest(dataFolder);
 end
@@ -80,12 +82,13 @@ end
 
 nn = 1 : length(z);
 saw = detrend(cumsum(z));
-[~, indexInit] = findpeaks( -saw, 'MinPeakWidth', round(0.3*300) );
-[~, indexEnd] = findpeaks( saw, 'MinPeakWidth', round(0.3*300) );
+[~, indexInit] = findpeaks( -saw, 'MinPeakWidth', round(0.4*300) );
+[~, indexEnd] = findpeaks( saw, 'MinPeakWidth', round(0.4*300) );
 
 figure; subplot(211); plot( nn, z, nn(indexInit), z(indexInit), 'o', nn(indexEnd), z(indexEnd), 'x' )
 subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'o', nn(indexEnd), saw(indexEnd), 'x' )
 
+%%
 offset = zeros(size(indexInit));
 goodSteps = ones(size(indexInit)) > 0;
 
