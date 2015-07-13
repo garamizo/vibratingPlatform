@@ -1,7 +1,7 @@
 clear; clc
 
 
-dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests';
+dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests\';
 % dataFolder = '/home/garamizo/Downloads/';
 % dataFolder = 'C:\Users\rastgaar\Desktop\';
 
@@ -30,7 +30,7 @@ Pplate = Pplate + quatrotate( quatinv(Qplate), -[test.plateCentroidX test.plateC
 
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
 
-rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 0.3 ...
+rows = sqrt(sum((Pfoot - Pplate).^2,2)) < 1 ...
     & ( t > t(end)/10 & t < t(end)*9/10 ) ...
     & ~any(isnan([Qfoot Qshin Pfoot Pshin]),2);
 %rows = t > t(1)+3 & t < t(end)-3;
@@ -89,21 +89,20 @@ figure; subplot(211); plot( nn, z, nn(indexInit), z(indexInit), 'o', nn(indexEnd
 subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'o', nn(indexEnd), saw(indexEnd), 'x' )
 
 %%
+stanceSize = 2*round( max( indexEnd-indexInit )/2 ); % number of samples per stance
+stanceInit = round( (indexEnd+indexInit)/2 ) - stanceSize/2 + round(offset/2); % index of beginning of stance
+stanceNumber = length( stanceInit ); % number of gaits cycles
+
+rows = bsxfun( @plus, 1:stanceSize, stanceInit )'; % during stances
+
+% reshape to 3D matrix
+anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+
 offset = zeros(size(indexInit));
 goodSteps = ones(size(indexInit)) > 0;
 
 for iter = 1 : 10
-    
-    stanceSize = 2*round( mean( indexEnd-indexInit )/2 ); % number of samples per stance
-    stanceInit = round( (indexEnd+indexInit)/2 ) - stanceSize/2 + round(offset/2); % index of beginning of stance
-    stanceNumber = length( stanceInit ); % number of gaits cycles
-
-    rows = bsxfun( @plus, 1:stanceSize, stanceInit )'; % during stances
-
-    % reshape to 3D matrix
-    anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
-    torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
-
     % Do not remove average
 
     % remove bad gaits
@@ -127,6 +126,7 @@ for iter = 1 : 10
     goodStepsTorques = squeeze( all( sum( tmp, 1 ) / stanceNumber > percentageThresTorques, 2 ) );
 
     goodSteps = goodStepsAngles & goodStepsTorques;
+    %goodSteps = ones( size(goodSteps) ) > 0;
 
     % Fine tune sync
     y2 = squeeze(torquesSeg(:,3,:));

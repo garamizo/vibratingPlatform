@@ -1,16 +1,16 @@
 dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\GaitTests';
 
 test.type = 'weight';
-test.rShinAlias = 'Rigid Body 1';
-test.rFootAlias = 'Rigid Body 2';
-test.lShinAlias = 'Rigid Body 3';
-test.lFootAlias = 'Rigid Body 4';
+test.rShinAlias = 'Rigid Body 2';
+test.rFootAlias = 'Rigid Body 3';
+test.lShinAlias = 'Rigid Body 4';
+test.lFootAlias = 'Rigid Body 5';
 test.plateCentroidX = -0.15;
 test.plateCentroidY = 0;
 test.plateCentroidZ = .25;
 test.comments = '';
-test.csvFile = '\june29\Take 2015-06-29 05.04.29 PM.csv';
-test.lvmFile = '\june29\raw_1.lvm';
+test.csvFile = '\July 5\Take 2015-07-05 03.44.00 PM.csv';
+test.lvmFile = '\July 5\raw_42.lvm';
 test.subjectKey = 3;
 
 %%
@@ -58,7 +58,7 @@ vec = q12(:,2:4) ./ repmat(sin(theta/2), [1 3]);
 anglesL = vec .* repmat(theta, [1 3]); % rotation components
 
 % forces on sensors, W RF
-RCK = [-1 0 0; 0 0 -1; 0 -1 0];
+RCK = [1 0 0; 0 0 -1; 0 1 0]';
 F1 = [x12/2 y14/2 z1] * RCK';
 F2 = [x12/2 y23/2 z2] * RCK';
 F3 = [x34/2 y23/2 z3] * RCK';
