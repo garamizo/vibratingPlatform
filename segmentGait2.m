@@ -88,22 +88,27 @@ saw = detrend(cumsum(z));
 figure; subplot(211); plot( nn, z, nn(indexInit), z(indexInit), 'o', nn(indexEnd), z(indexEnd), 'x' )
 subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'o', nn(indexEnd), saw(indexEnd), 'x' )
 
+gaitRealSize = indexEnd-indexInit;
+
 %%
-stanceSize = 2*round( max( indexEnd-indexInit )/2 ); % number of samples per stance
-stanceInit = round( (indexEnd+indexInit)/2 ) - stanceSize/2 + round(offset/2); % index of beginning of stance
-stanceNumber = length( stanceInit ); % number of gaits cycles
 
-rows = bsxfun( @plus, 1:stanceSize, stanceInit )'; % during stances
-
-% reshape to 3D matrix
-anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
-torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+shiftOn = false;
+borderSlack = 20; % maximum shift offset
 
 offset = zeros(size(indexInit));
 goodSteps = ones(size(indexInit)) > 0;
 
 for iter = 1 : 10
-    % Do not remove average
+    
+    stanceSize = 2*round( max( indexEnd-indexInit )/2 ) + 2*borderSlack; % number of samples per stance
+    stanceInit = indexInit - borderSlack + offset; % index of beginning of stance
+    stanceNumber = length( stanceInit ); % number of gaits cycles
+
+    rows = bsxfun( @plus, 1:stanceSize, stanceInit )'; % during stances
+
+    % reshape to 3D matrix
+    anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+    torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
 
     % remove bad gaits
     anglesMean = nanmean( anglesSeg(:,:,goodSteps), 3);
@@ -129,44 +134,45 @@ for iter = 1 : 10
     %goodSteps = ones( size(goodSteps) ) > 0;
 
     % Fine tune sync
-    y2 = squeeze(torquesSeg(:,3,:));
-    y1 = mean( y2(:,goodSteps), 2 );
+    refCurve = squeeze( mean( torquesSeg(:,3,:), 2 ) );
 
-    nmax = 10;
-    delay = -nmax : 1 : nmax;
+    delay = -borderSlack : 1 : borderSlack;
     rms = zeros( size(delay) );
-    nn = (1 : length(y1))';
-    rows = nn > nmax & nn < length(nn)-nmax;
+    nn = (1 : length(refCurve))';
+    rows = nn > borderSlack & nn < length(nn)-borderSlack;
 
     clear y3 delayCalc anglesSyncDP anglesSyncIE torquesSyncDP torquesSyncIE
     offsetInc = zeros(size(offset));
-    for channel = 1 : size( y2, 2 ) 
-        yy = y2(:,channel);
+    for channel = 1 : size( refCurve, 2 ) 
+        %yy = refCurve(:,channel);
         for n = 1 : length( delay )
-            rms(n) = sqrt( sum( (y1(rows) - yy( circshift(rows, delay(n)) )).^2  ));
+            rms(n) = sqrt( sum( (mean(refCurve(rows,goodSteps),2) - refCurve( circshift(rows, delay(n)),channel )).^2  ));
         end
         [~,iOpt] = min( rms );
         offsetInc(channel) = delay(iOpt);
     end
     
-    offset = offset + offsetInc;
+    if shiftOn
+        offset = offset + offsetInc;
+    end
 end
 
 disp( [num2str(sum(~goodSteps)) ' steps removed from ' num2str(stanceNumber)])
 
 %%
-offset = 100;
-rows = bsxfun( @plus, -offset:-1, stanceInit )'; % during stances
-anglesAdd = permute( reshape( angles(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
-torquesAdd = permute( reshape( torques(rows,:)', [3 offset stanceNumber] ), [2 1 3] );
+lookAhead = 100;
+
+rows = bsxfun( @plus, -lookAhead:-1, stanceInit )'; % during stances
+anglesAdd = permute( reshape( angles(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] );
+torquesAdd = permute( reshape( torques(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] );
 
 anglesFull = [anglesAdd; anglesSeg];
 torquesFull = [torquesAdd; torquesSeg];
 
-anglesSegDP = squeeze( anglesFull(:,3,goodSteps) )';
-torquesSegDP = squeeze( torquesFull(:,3,goodSteps) )';
-anglesSegIE = squeeze( anglesFull(:,1,goodSteps) )';
-torquesSegIE = squeeze( torquesFull(:,1,goodSteps) )';
+anglesSegDP = squeeze( anglesFull(:,3,:) )';
+torquesSegDP = squeeze( torquesFull(:,3,:) )';
+anglesSegIE = squeeze( anglesFull(:,1,:) )';
+torquesSegIE = squeeze( torquesFull(:,1,:) )';
 
 figure;
 plot(squeeze( anglesFull(:,1,goodSteps) ), 'b' )
@@ -177,11 +183,11 @@ plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
 
 %%
 
-figure;
-subplot(221); shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
-subplot(223); shadedErrorBar( [], nanmean(anglesSegIE)', 1*nanstd(anglesSegIE,[],1)', 'r', 1 )
-subplot(222); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
-subplot(224); shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
+% figure;
+% subplot(221); shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
+% subplot(223); shadedErrorBar( [], nanmean(anglesSegIE)', 1*nanstd(anglesSegIE,[],1)', 'r', 1 )
+% subplot(222); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
+% subplot(224); shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
 
 figure;
 subplot(211);
