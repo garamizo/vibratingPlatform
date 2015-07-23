@@ -3,7 +3,8 @@ classdef ZTools
     %   Detailed explanation goes here
     
     properties(Constant)
-        centroid3Markers = [0.078692666666667 0 -0.045018];
+        %centroid3Markers = [0.078692666666667 0 -0.045018];
+        centroid3Markers = [0.184100000000000 0 -0.111];
         centroid4Markers = -[0.033624698258992   0.000652664546980  -0.000157121850220];
         standardLogFile = 'vibratingPlatformReference.csv';
         subjectFileName = 'subjectFile.csv';
@@ -121,7 +122,7 @@ classdef ZTools
                     hCSV = ZTools.readCSVHeader( [dataFolder csvtext.String] );
                     hLVM = ZTools.readLVMHeader( [dataFolder lvmtext.String] );
 
-                    if abs(seconds( hCSV.t0 - hLVM.t0 )) > 10
+                    if abs(seconds( hCSV.t0 - hLVM.t0 )) > 90
                         error('Files are time incompatible');
                     end
 
@@ -396,7 +397,12 @@ classdef ZTools
             fileName = regexprep( fileName, {'\','/'}, {filesep,filesep} );
             
             header = lvm_import( fileName, 0 );
+            
             tbl = header.Segment1.data;
+            k = 2;
+            while isfield( header, ['Segment' num2str(k)] )
+                tbl = [tbl; header.( ['Segment' num2str(k)] ).data ];
+            end
             
             header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
             header.fs = mean( 1./diff(tbl(:,1)) );
@@ -636,6 +642,11 @@ classdef ZTools
             
             M = 2*abs(Y(1:NFFT/2+1));
             P = angle(Y(1:NFFT/2+1));
+        end
+        
+        function Qfix = fixQuat( Q )
+            [r1, r2, r3] = quat2angle( Q, 'YZX' );
+            Qfix = angle2quat( asin(sin(r1)), asin(sin(r2)), asin(sin(r3)), 'YZX' );
         end
     end
     

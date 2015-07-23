@@ -5,7 +5,7 @@ dataFolder = 'C:\Users\rastgaar\Google Drive\HIRoLab - Ruffus\VibratingPlatform\
 % dataFolder = '/home/garamizo/Downloads/';
 % dataFolder = 'C:\Users\rastgaar\Desktop\';
 
-nFiles = 4;
+nFiles = 1;
 
 % load files
 for n = 1 : nFiles
@@ -27,6 +27,9 @@ camTableClean = ZTools.fillGaps( tblCam, 3 );
 [Pshin,Qshin] = ZTools.extractBody( tblCamSync, headerCam, test.rShinAlias );
 [Pfoot,Qfoot] = ZTools.extractBody( tblCamSync, headerCam, test.rFootAlias );
 Pplate = Pplate + quatrotate( quatinv(Qplate), -[test.plateCentroidX test.plateCentroidY test.plateCentroidZ] );
+
+% Qshin = ZTools.fixQuat( Qshin );
+% Qfoot = ZTools.fixQuat( Qfoot );
 
 [z1, z2, z3, z4, x12, x34, y14, y23] = ZTools.parsePlateTable( tblPlateSync );
 
@@ -78,6 +81,8 @@ for n = 1 : nFiles
     z = [z; tests(n).z];
 end
 
+
+
 %%
 
 nn = 1 : length(z);
@@ -93,7 +98,7 @@ gaitRealSize = indexEnd-indexInit;
 %%
 
 shiftOn = false;
-borderSlack = 20; % maximum shift offset
+borderSlack = 0; % maximum shift offset
 
 offset = zeros(size(indexInit));
 goodSteps = ones(size(indexInit)) > 0;
@@ -160,8 +165,9 @@ end
 disp( [num2str(sum(~goodSteps)) ' steps removed from ' num2str(stanceNumber)])
 
 %%
-lookAhead = 100;
+lookAhead = 120;
 
+    
 rows = bsxfun( @plus, -lookAhead:-1, stanceInit )'; % during stances
 anglesAdd = permute( reshape( angles(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] );
 torquesAdd = permute( reshape( torques(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] );
@@ -175,11 +181,56 @@ anglesSegIE = squeeze( anglesFull(:,1,:) )';
 torquesSegIE = squeeze( torquesFull(:,1,:) )';
 
 figure;
-plot(squeeze( anglesFull(:,1,goodSteps) ), 'b' )
-hold on
-plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
+subplot(221); plot( anglesSegDP' )
+subplot(222); plot( anglesSegIE' )
+subplot(223); plot( torquesSegDP' )
+subplot(224); plot( torquesSegIE' )
 
+% figure;
+% plot(squeeze( anglesFull(:,1,goodSteps) ), 'b' )
+% hold on
+% plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
 
+%%
+anglesSegRes = zeros( ceil(mean(gaitRealSize)), 3, stanceNumber );
+torquesSegRes = zeros( ceil(mean(gaitRealSize)), 3, stanceNumber );
+
+anglesAdd = zeros( lookAhead, 3, stanceNumber );
+torquesAdd = zeros( lookAhead, 3, stanceNumber );
+
+for n = 1 : stanceNumber
+    anglesSegRes(:,:,n) = resample( anglesSeg(1:gaitRealSize(n),:,n), ceil(mean(gaitRealSize)), mean(gaitRealSize(n)) );
+    torquesSegRes(:,:,n) = resample( torquesSeg(1:gaitRealSize(n),:,n), ceil(mean(gaitRealSize)), mean(gaitRealSize(n)) );
+    
+    rows = bsxfun( @plus, -lookAhead:-1, stanceInit )'; % during stances
+    temp1 = resample( permute( reshape( angles(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] ), ceil(mean(gaitRealSize)), mean(gaitRealSize(n)) );
+    temp2 = resample( permute( reshape( torques(rows,:)', [3 lookAhead stanceNumber] ), [2 1 3] ), ceil(mean(gaitRealSize)), mean(gaitRealSize(n)) );
+
+    anglesAdd(:,:,n) = temp1(n,end-100:end);
+    torquesAdd(:,:,n) = temp2(n,end-100:end);
+end
+
+%%
+lookAhead = 120;
+rows = bsxfun( @plus, -lookAhead:stanceSize, stanceInit )'; % during stances
+
+% reshape to 3D matrix
+anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize stanceNumber] ), [2 1 3] );
+
+%%
+
+anglesSegResDP = zeros( stanceNumber, lookAhead + round(mean(gaitRealSize)) );
+torquesSegResDP = zeros( stanceNumber, lookAhead + round(mean(gaitRealSize)) );
+anglesSegResIE = zeros( stanceNumber, lookAhead + round(mean(gaitRealSize)) );
+torquesSegResIE = zeros( stanceNumber, lookAhead + round(mean(gaitRealSize)) );
+
+for n = 1 : stanceNumber
+    block = [ anglesSegDP(n,:); torquesSegDP(n,:); anglesSegIE(n,:); torquesSegIE(n,:) ]';
+    
+    anglesSegResDP(n,:) = resample( block, round(mean(gaitRealSize)), gaitRealSize(n) );
+    
+end
 
 %%
 
@@ -189,6 +240,7 @@ plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
 % subplot(222); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
 % subplot(224); shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
 
+%%
 figure;
 subplot(211);
 shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
