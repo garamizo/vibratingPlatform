@@ -3,8 +3,10 @@ classdef ZTools
     %   Detailed explanation goes here
     
     properties(Constant)
-        %centroid3Markers = [0.078692666666667 0 -0.045018];
-        centroid3Markers = [0.184100000000000 0 -0.111];
+        % centroid of plate markers in respect to force plate
+        centroid3Markers = [0.078692666666667 0 -0.045018];
+        %centroid3bMarkers = [0.184100000000000 0 -0.111];
+        centroid3bMarkers = ( [250-12.5 0 -150+12.5] + [-41.3 -1.4 89.1] ) *1e-3;
         centroid4Markers = -[0.033624698258992   0.000652664546980  -0.000157121850220];
         standardLogFile = 'vibratingPlatformReference.csv';
         subjectFileName = 'subjectFile.csv';
@@ -553,8 +555,8 @@ classdef ZTools
             ta = ( 0:size(tbla,1)-1 ) / fa;
             tb = seconds( t0b - t0a) + ( 0:size(tblb,1)-1 ) / fb;
             
-            if ta(1) > tb(end) || ta(end) < tb(1)
-                error('Files are time incompatible')
+            if ta(1) > tb(end) || ta(end) < tb(1) % min( ta(end), tb(end) ) - max( ta(1), tb(1) )
+                error('Incompatible files', 'No time intersection between files')
             end
 
             factor = round( fb / fa );
@@ -573,8 +575,8 @@ classdef ZTools
             f = fa;
             tblbb = tblbb( rows, : );
             t = ta( rows );
-            t0 = t(1);
-            t = t - t0;
+            t0 = seconds(t(1)) + t0a;
+            t = t - t(1);
             t = reshape( t, [numel(t) 1] );
         end
         
@@ -597,6 +599,9 @@ classdef ZTools
 
         function [ra, rb] = calculateJointPosition( Pa, Qa, Pb, Qb )
             
+            if size(Pa,1) < 6
+                error( ['Not enough points for ankle calculation: ' num2str(size(Pa,1))] )
+            end
             N = size( [Pa Qa Pb Qb], 1 );
             A = [ reshape( quat2dcm(Qa), [3 3*N] )', -reshape( quat2dcm(Qb), [3 3*N] )' ];
             Y = -( reshape( Pa', [3*N 1] ) - reshape( Pb', [3*N 1] ) );
@@ -647,6 +652,61 @@ classdef ZTools
         function Qfix = fixQuat( Q )
             [r1, r2, r3] = quat2angle( Q, 'YZX' );
             Qfix = angle2quat( asin(sin(r1)), asin(sin(r2)), asin(sin(r3)), 'YZX' );
+        end
+        
+        function pair4 = loadTestFolder( folderPath )
+            
+            % read csv files
+            disp('Reading CSV files...')
+            D = dir( [ folderPath '/*.csv' ] );
+            for k = 1 : length( D )
+                [tbl, header] = ZTools.readCSV( [ folderPath filesep D(k).name ] );
+                csvFile(k) = struct( 'fileName', D(k).name, 'header', header, 'tbl', {tbl} );
+            end
+            
+            % read lvm files
+            disp('Reading LVM files...')
+            D = dir( [ folderPath '/*.lvm' ] );
+            for k = 1 : length( D )
+                [tbl, header] = ZTools.readLVM( [ folderPath filesep D(k).name ] );
+                lvmFile(k) = struct( 'fileName', D(k).name, 'header', header, 'tbl', {tbl} );
+            end
+            
+            % sync each csv with each lvm
+            disp('Syncing files...')
+            pair = repmat( struct( 'dataMotion', {[]}, 'dataForce', {[]}, 'fs', 0, ...
+                't0', 0, 'duration', 0, 'csvFilename', '', 'lvmFilename', '', ...
+                'csvHeader', {[]}, 'lvmHeader', {[]} ), [length(csvFile) length(lvmFile)] );
+            for kCSV = 1 : length( csvFile )
+                for kLVM = 1 : length( lvmFile )
+                    try
+                        [tblaa, tblbb, t, f, t0] = ZTools.synchronizeTables( ...
+                            csvFile(kCSV).tbl, csvFile(kCSV).header.t0, csvFile(kCSV).header.fs, ...
+                            lvmFile(kLVM).tbl, lvmFile(kLVM).header.t0, lvmFile(kLVM).header.fs );
+                        
+                        pair(kCSV,kLVM) = struct( 'dataMotion', {tblaa}, 'dataForce', {tblbb}, 'fs', f, 't0', t0, 'duration', t(end)-t(1), ...
+                            'csvFilename', csvFile(kCSV).fileName, 'lvmFilename', lvmFile(kLVM).fileName, 'csvHeader', csvFile(kCSV).header, 'lvmHeader', lvmFile(kLVM).header );
+                    catch err
+                        % do nothing
+                    end
+                end
+            end
+            
+            disp('Sorting files...')
+            % select lvms with highest recording duration for each csv
+            d = reshape( [pair.duration], [length(csvFile) length(lvmFile)] );
+            [~,idxLVM] = max(d);
+            for n = 1 : size( pair, 1 )
+                pair2(n) = pair(n,idxLVM(n));
+            end
+            
+            % sort by capture time
+            [~,idx] = sort( [pair2.t0] );
+            pair3 = pair2(idx);
+            
+            % exclude csv without lvm
+            idx = [pair3.duration] > 0;
+            pair4 = pair3(idx);    
         end
     end
     
