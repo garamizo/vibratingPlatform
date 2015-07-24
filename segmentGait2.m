@@ -1,12 +1,17 @@
-% clear; clc
-% 
-% experiment.run = ZTools.loadTestFolder( uigetdir );
-% experiment.plateAlias = 'Rigid Body 1';
-% experiment.rShinAlias = 'Rigid Body 2';
-% experiment.rFootAlias = 'Rigid Body 3';
-% experiment.platePositionOffset = -[250-12.5 0 -150+12.5]*1e-3 - [-122.7/3 0 272/3]*1e-3; % from centroid to center, cam RF
+%% Time Varying Impedance
 
-%%
+clear; clc
+initTime = tic;
+%% Loading file
+
+experiment.run = ZTools.loadTestFolder( uigetdir );
+experiment.plateAlias = 'Rigid Body 1';
+experiment.rShinAlias = 'Rigid Body 2';
+experiment.rFootAlias = 'Rigid Body 3';
+experiment.platePositionOffset = -[250-12.5 0 -150+12.5]*1e-3 - [-122.7/3 0 272/3]*1e-3; % from centroid to center, cam RF
+
+%% Concatenate runs
+
 for n = 1 : length( experiment.run )
     run = experiment.run( n );
 
@@ -25,7 +30,7 @@ for n = 1 : length( experiment.run )
         & ~any(isnan([Qfoot Qshin Pfoot Pshin]),2);
     %rows = t > t(1)+3 & t < t(end)-3;
 
-    [rs, rf] = ZTools.calculateJointPosition( Pshin(rows,:), Qshin(rows,:), Pfoot(rows,:), Qfoot(rows,:) )
+    [rs, rf] = ZTools.calculateJointPosition( Pshin(rows,:), Qshin(rows,:), Pfoot(rows,:), Qfoot(rows,:) );
     Pankle = (Pfoot + quatrotate(quatinv(Qfoot), rf') + Pshin + quatrotate(quatinv(Qshin), rs')) / 2;
 
     % Get ankle angle using quaternion components
@@ -60,8 +65,6 @@ for n = 1 : length( experiment.run )
     runs(n) = struct( 'torques', torques, 'angles', angles, 'normal', z );
 end
 
-%%
-
 angles = [];
 torques = [];
 normals = [];
@@ -71,9 +74,10 @@ for n = 1 : length( experiment.run )
     normals = [normals; runs(n).normal];
 end
 
+%% Segmenting
 
-
-%%
+lookAhead = 120;
+lookAheadSlack = lookAhead + 20;
 
 nn = 1 : length(normals);
 saw = detrend(cumsum(normals));
@@ -83,48 +87,64 @@ saw = detrend(cumsum(normals));
 figure; subplot(211); plot( nn, normals, nn(indexInit), normals(indexInit), 'o', nn(indexEnd), normals(indexEnd), 'x' )
 subplot(212); plot( nn, saw, nn(indexInit), saw(indexInit), 'o', nn(indexEnd), saw(indexEnd), 'x' )
 
-gaitRealSize = indexEnd-indexInit;
+stanceSize = 2*round( max( indexEnd-indexInit )/2 ); % number of samples per stance
+stanceInit = indexInit; % index of beginning of stance
+stanceNumber = length( stanceInit ); % number of gaits cycles
 
-%%
+stanceRealSize = indexEnd-indexInit;
 
-    stanceSize = 2*round( max( indexEnd-indexInit )/2 ); % number of samples per stance
-    stanceInit = indexInit; % index of beginning of stance
-    stanceNumber = length( stanceInit ); % number of gaits cycles
-
-%%
-lookAhead = 100;
-    
-rows = bsxfun( @plus, -lookAhead:stanceSize-1, stanceInit )'; % during stances
-anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize+lookAhead stanceNumber] ), [2 1 3] );
-torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize+lookAhead stanceNumber] ), [2 1 3] );
+rows = bsxfun( @plus, -lookAheadSlack:stanceSize-1, stanceInit )'; % during stances
+anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize+lookAheadSlack stanceNumber] ), [2 1 3] );
+torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize+lookAheadSlack stanceNumber] ), [2 1 3] );
 
 anglesSegDP = squeeze( anglesSeg(:,3,:) )';
 torquesSegDP = squeeze( torquesSeg(:,3,:) )';
 anglesSegIE = squeeze( anglesSeg(:,1,:) )';
 torquesSegIE = squeeze( torquesSeg(:,1,:) )';
 
-figure;
-subplot(221); plot( anglesSegDP' )
-subplot(222); plot( anglesSegIE' )
-subplot(223); plot( torquesSegDP' )
-subplot(224); plot( torquesSegIE' )
+%% Time Scaling
 
-figure;
-subplot(211);
-shadedErrorBar( [], nanmean(anglesSegDP)', 1*nanstd(anglesSegDP,[],1)', 'b', 1 )
-hold on; shadedErrorBar( [], nanmean(anglesSegIE)', 1*nanstd(anglesSegIE,[],1)', 'r', 1 )
-title('Angle')
-subplot(212); shadedErrorBar( [], nanmean(torquesSegDP)', 1*nanstd(torquesSegDP,[],1)', 'b', 1 )
-hold on; shadedErrorBar( [], nanmean(torquesSegIE)', 1*nanstd(torquesSegIE,[],1)', 'r', 1 )
-title('Torque')
+anglesScaledDP = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
+torquesScaledDP = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
+anglesScaledIE = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
+torquesScaledIE = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
 
-% figure;
-% plot(squeeze( anglesFull(:,1,goodSteps) ), 'b' )
-% hold on
-% plot(squeeze( anglesFull(:,1,~goodSteps) ), 'r' )
+for n = 1 : stanceNumber
+    tmp = resample( anglesSegDP(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
+    tmp2 = resample( anglesSegDP(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
+    anglesScaledDP(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    
+    tmp = resample( torquesSegDP(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
+    tmp2 = resample( torquesSegDP(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
+    torquesScaledDP(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    
+    tmp = resample( anglesSegIE(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
+    tmp2 = resample( anglesSegIE(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
+    anglesScaledIE(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    
+    tmp = resample( torquesSegIE(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
+    tmp2 = resample( torquesSegIE(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
+    torquesScaledIE(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+end
 
-missingSamples = squeeze( sum( any( isnan( torquesSeg ), 2 ), 1 ) );
+missingSamples = squeeze( sum( isnan( anglesScaledDP ), 2 ) );
 figure; hist( missingSamples ); title( 'Frequency of Missing Samples' )
 goodSteps = missingSamples == 0;
 sum( goodSteps )
 
+figure;
+subplot(211);
+shadedErrorBar( [], nanmean(anglesScaledDP)', 1*nanstd(anglesScaledDP,[],1)', 'b', 1 )
+hold on; shadedErrorBar( [], nanmean(anglesScaledIE)', 1*nanstd(anglesScaledIE,[],1)', 'r', 1 )
+title('Angle')
+subplot(212); shadedErrorBar( [], nanmean(torquesScaledDP)', 1*nanstd(torquesScaledDP,[],1)', 'b', 1 )
+hold on; shadedErrorBar( [], nanmean(torquesScaledIE)', 1*nanstd(torquesScaledIE,[],1)', 'r', 1 )
+title('Torque')
+
+figure;
+subplot(221); plot( anglesScaledDP' )
+subplot(222); plot( anglesScaledIE' )
+subplot(223); plot( torquesScaledDP' )
+subplot(224); plot( torquesScaledIE' )
+
+toc( initTime )
