@@ -8,6 +8,7 @@ experiment.run = ZTools.loadTestFolder( uigetdir );
 experiment.plateAlias = 'Rigid Body 1';
 experiment.rShinAlias = 'Rigid Body 2';
 experiment.rFootAlias = 'Rigid Body 3';
+
 experiment.platePositionOffset = -[250-12.5 0 -150+12.5]*1e-3 - [-122.7/3 0 272/3]*1e-3; % from centroid to center, cam RF
 
 %% Concatenate runs
@@ -76,8 +77,8 @@ end
 
 %% Segmenting
 
-lookAhead = 120;
-lookAheadSlack = lookAhead + 20;
+lookAhead = 100;
+head = 20;
 
 nn = 1 : length(normals);
 saw = detrend(cumsum(normals));
@@ -93,9 +94,9 @@ stanceNumber = length( stanceInit ); % number of gaits cycles
 
 stanceRealSize = indexEnd-indexInit;
 
-rows = bsxfun( @plus, -lookAheadSlack:stanceSize-1, stanceInit )'; % during stances
-anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize+lookAheadSlack stanceNumber] ), [2 1 3] );
-torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize+lookAheadSlack stanceNumber] ), [2 1 3] );
+rows = bsxfun( @plus, -lookAhead-head:stanceSize+tail, stanceInit )'; % during stances
+anglesSeg = permute( reshape( angles(rows,:)', [3 stanceSize+lookAhead+head+1 stanceNumber] ), [2 1 3] );
+torquesSeg = permute( reshape( torques(rows,:)', [3 stanceSize+lookAhead+head+1 stanceNumber] ), [2 1 3] );
 
 anglesSegDP = squeeze( anglesSeg(:,3,:) )';
 torquesSegDP = squeeze( torquesSeg(:,3,:) )';
@@ -104,33 +105,39 @@ torquesSegIE = squeeze( torquesSeg(:,1,:) )';
 
 %% Time Scaling
 
-anglesScaledDP = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
-torquesScaledDP = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
-anglesScaledIE = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
-torquesScaledIE = zeros( stanceNumber, round(mean(stanceRealSize))+lookAhead );
+clear anglesScaledDP anglesScaledIE torquesScaledDP torquesScaledIE
 
 for n = 1 : stanceNumber
-    tmp = resample( anglesSegDP(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
-    tmp2 = resample( anglesSegDP(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
-    anglesScaledDP(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    P = round( mean(stanceRealSize) );
+    Q = stanceRealSize(n);
+    k0 = round( (lookAhead+head) * mean(stanceRealSize) / gaitRealSize(n) );
     
-    tmp = resample( torquesSegDP(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
-    tmp2 = resample( torquesSegDP(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
-    torquesScaledDP(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    tmp = resample( anglesSegDP(n,1:(lookAhead+head+Q)) - anglesSegDP(n,lookAhead+head+Q), P, Q ); 
+    anglesScaledDP(n,:) = tmp( k0-lookAhead : k0+P-1 ) + anglesSegDP(n,lookAhead+head+Q); 
     
-    tmp = resample( anglesSegIE(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
-    tmp2 = resample( anglesSegIE(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
-    anglesScaledIE(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    tmp = resample( anglesSegIE(n,1:(lookAhead+head+Q+tail)) - anglesSegIE(n,lookAhead+head+Q), P, Q ); 
+    anglesScaledIE(n,:) = tmp( k0-lookAhead : k0+P-1 ) + anglesSegIE(n,lookAhead+head+Q);
     
-    tmp = resample( torquesSegIE(n,lookAheadSlack+1:lookAheadSlack+stanceRealSize(n)), round(mean(stanceRealSize)), stanceRealSize(n) );
-    tmp2 = resample( torquesSegIE(n,1:lookAheadSlack+1), round(mean(stanceRealSize)), stanceRealSize(n) );
-    torquesScaledIE(n,:) = [ tmp2(end-lookAhead:end-1) tmp ];
+    tmp = resample( torquesSegDP(n,1:(lookAhead+head+Q+tail)) - torquesSegDP(n,lookAhead+head+Q), P, Q );  
+    torquesScaledDP(n,:) = tmp( k0-lookAhead : k0+P-1 ) + torquesSegDP(n,lookAhead+head+Q); 
+    
+    tmp = resample( torquesSegIE(n,1:(lookAhead+head+Q+tail)) - torquesSegIE(n,lookAhead+head+Q), P, Q );  
+    torquesScaledIE(n,:) = tmp( k0-lookAhead : k0+P-1 ) + torquesSegIE(n,lookAhead+head+Q);  
 end
+
+%%
 
 missingSamples = squeeze( sum( isnan( anglesScaledDP ), 2 ) );
 figure; hist( missingSamples ); title( 'Frequency of Missing Samples' )
 goodSteps = missingSamples == 0;
 sum( goodSteps )
+
+badSteps = ~goodSteps | (1:length(goodSteps))' <= 8;
+ANG_DP = anglesScaledDP(~badSteps,:);
+ANG_IE = anglesScaledIE(~badSteps,:);
+TOR_DP = torquesScaledDP(~badSteps,:);
+TOR_IE = torquesScaledIE(~badSteps,:);
+STANCE_REAL_SIZE = stanceRealSize(~badSteps);
 
 figure;
 subplot(211);

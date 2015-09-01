@@ -400,10 +400,15 @@ classdef ZTools
             
             header = lvm_import( fileName, 0 );
             
-            tbl = header.Segment1.data;
-            k = 2;
-            while isfield( header, ['Segment' num2str(k)] )
-                tbl = [tbl; header.( ['Segment' num2str(k)] ).data ];
+            % Fix segment problem
+            numSegment = 1;
+            while isfield( header, ['Segment' num2str(numSegment+1)] )
+                numSegment = numSegment + 1;
+            end
+            sizeSegment = size(header.Segment1.data);
+            tbl = zeros( sizeSegment .* [numSegment 1] );
+            for k = 1 : numSegment
+                tbl((1:sizeSegment(1)) + sizeSegment(1)*(k-1),:) = header.( ['Segment' num2str(k)] ).data;
             end
             
             header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
@@ -657,7 +662,7 @@ classdef ZTools
         function pair4 = loadTestFolder( folderPath )
             
             % read csv files
-            disp('Reading CSV files...')
+            disp('(1/4) Reading CSV files...')
             D = dir( [ folderPath '/*.csv' ] );
             for k = 1 : length( D )
                 [tbl, header] = ZTools.readCSV( [ folderPath filesep D(k).name ] );
@@ -665,7 +670,7 @@ classdef ZTools
             end
             
             % read lvm files
-            disp('Reading LVM files...')
+            disp('(2/4) Reading LVM files...')
             D = dir( [ folderPath '/*.lvm' ] );
             for k = 1 : length( D )
                 [tbl, header] = ZTools.readLVM( [ folderPath filesep D(k).name ] );
@@ -673,7 +678,7 @@ classdef ZTools
             end
             
             % sync each csv with each lvm
-            disp('Syncing files...')
+            disp('(3/4) Syncing files...')
             pair = repmat( struct( 'dataMotion', {[]}, 'dataForce', {[]}, 'fs', 0, ...
                 't0', 0, 'duration', 0, 'csvFilename', '', 'lvmFilename', '', ...
                 'csvHeader', {[]}, 'lvmHeader', {[]} ), [length(csvFile) length(lvmFile)] );
@@ -692,10 +697,10 @@ classdef ZTools
                 end
             end
             
-            disp('Sorting files...')
+            disp('(4/4) Sorting files...')
             % select lvms with highest recording duration for each csv
             d = reshape( [pair.duration], [length(csvFile) length(lvmFile)] );
-            [~,idxLVM] = max(d);
+            [~,idxLVM] = max(d,[],2);
             for n = 1 : size( pair, 1 )
                 pair2(n) = pair(n,idxLVM(n));
             end
@@ -706,7 +711,30 @@ classdef ZTools
             
             % exclude csv without lvm
             idx = [pair3.duration] > 0;
-            pair4 = pair3(idx);    
+            pair4 = pair3(idx);
+            
+            disp('Done')
+        end
+    
+        function playCam( run )
+            figure
+            for n = 1 : length( run.csvHeader.RigidBody )
+                [body{n}.P, body{n}.Q] = ZTools.extractBody( run.dataMotion, run.csvHeader, run.csvHeader.RigidBody(n).name );
+                h(n) = plot3( 0, 0, 0 );
+                hold on
+            end
+            axis( [-3 3 -0.5 5.5 -3 3] )
+            legend( run.csvHeader.RigidBody.name )
+            
+            fps = 20;
+            triad = [1 0 0; 0 0 0; 0 1 0; 0 0 0; 0 0 1]*1e-1;
+            for k = 1 : round(run.fs/fps) : size(run.dataMotion,1)
+                for n = 1 : length( body )
+                    triad_k = repmat(body{n}.P(k,:),[5 1]) + quatrotate( quatinv(body{n}.Q(k,:)), triad );
+                    set( h(n), 'XData', triad_k(:,1), 'YData', triad_k(:,2), 'ZData', triad_k(:,3) )
+                end
+                pause( 1/fps )
+            end
         end
     end
     
