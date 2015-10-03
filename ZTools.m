@@ -636,22 +636,33 @@ classdef ZTools
         function [ff,M,P] = plotFFT( t, y )
 
             Fs = 1/mean(diff(t));                    % Sampling frequency
-            L = size(y,1);                     % Length of signal
+            B = size(y,1);                     % Length of signal
             % Sum of a 50 Hz sinusoid and a 120 Hz sinusoid
-            yDetrend = detrend(y);     % Sinusoids plus noise
 
-            NFFT = 2^nextpow2(L); % Next power of 2 from length of y
-            Y = fft(yDetrend,NFFT)/L;
-            ff = Fs/2*linspace(0,1,NFFT/2+1);
-            figure
-            % Plot single-sided amplitude spectrum.
-            plot(ff,2*abs(Y(1:NFFT/2+1))) 
-            title('Single-Sided Amplitude Spectrum of y(t)')
-            xlabel('Frequency (Hz)')
-            ylabel('|Y(f)|')
+            %NFFT = 2^nextpow2(L); % Next power of 2 from length of y
+            Y = fft(y)/B;
+            ff = linspace(0, Fs, B);
             
-            M = 2*abs(Y(1:NFFT/2+1));
-            P = angle(Y(1:NFFT/2+1));
+            M = 2*abs(Y);
+            %P = unwrap(angle(conj(Y)));
+            P = atan2( real(Y), -imag(Y) );
+            
+            if nargout == 0
+                % Plot single-sided amplitude spectrum.
+                subplot(211); plot( ff, M ) 
+                title('Single-Sided Amplitude Spectrum of y(t)')
+                xlabel('Frequency (Hz)')
+                ylabel('|Y(f)|')
+                hold on
+
+                subplot(212); plot( ff, P ) 
+                title('Single-Sided Phase Spectrum of y(t)')
+                xlabel('Frequency (Hz)')
+                ylabel('angle Y(f)')
+                hold on
+            end
+            
+            
         end
         
         function Qfix = fixQuat( Q )
@@ -735,6 +746,32 @@ classdef ZTools
                 end
                 pause( 1/fps )
             end
+        end
+        
+        function Y = discretize( U, N, V )
+            % Discretize vector U on the range +-V into N bits
+            
+            U = uencode( U, N, V, 'signed');
+
+            U = cast( U, 'double' );
+            N = cast( N, 'double' );
+            V = cast( V, 'double' );
+
+            Y = interp1( [ -2^(N-1) 2^(N-1)-1 ], [-V V], U );
+        end
+        
+        function [f, M, P] = fftAvg( t, y, N, w )
+            M = zeros(N, 1);
+            P = zeros(N, 1);
+            for k = 1 : floor( length(t)/N )
+                idx = (1:N) + N*(k-1);
+                [ff, MM, PP] = ZTools.plotFFT( t(idx), y(idx).*w );
+                M = M + MM;
+                P = P + unwrap(PP);
+            end
+            f = ff;
+            M = M / k;
+            P = P / k;
         end
     end
     
