@@ -413,9 +413,9 @@ classdef ZTools
             
             header.t0 = datetime( [header.Date ' ' header.Time], 'InputFormat', 'yyyy/M/d H:m:s.SSSSSSSSSSSSSSSSSS' );
             header.fs = mean( 1./diff(tbl(:,1)) );
-            if std( 1./diff(tbl(:,1)) ) > header.fs/10
-                error('High variance in sampling time.')
-            end
+%             if std( 1./diff(tbl(:,1)) ) > header.fs/10
+%                 error('High variance in sampling time.')
+%             end
         end
         
         function header = readLVMHeader( fileName )
@@ -636,16 +636,17 @@ classdef ZTools
         function [ff,M,P] = plotFFT( t, y )
 
             Fs = 1/mean(diff(t));                    % Sampling frequency
-            B = size(y,1);                     % Length of signal
+            B = length(y);                     % Length of signal
             % Sum of a 50 Hz sinusoid and a 120 Hz sinusoid
 
             %NFFT = 2^nextpow2(L); % Next power of 2 from length of y
             Y = fft(y)/B;
-            ff = linspace(0, Fs, B);
+            Y(floor(B/2)+2:end) = [];
+            ff = linspace(0, Fs/2, floor(B/2)+1);
             
             M = 2*abs(Y);
-            %P = unwrap(angle(conj(Y)));
-            P = atan2( real(Y), -imag(Y) );
+            P = unwrap(angle(conj(Y)));
+            %P = unwrap(atan2( real(Y), -imag(Y) ));
             
             if nargout == 0
                 % Plot single-sided amplitude spectrum.
@@ -661,8 +662,6 @@ classdef ZTools
                 ylabel('angle Y(f)')
                 hold on
             end
-            
-            
         end
         
         function Qfix = fixQuat( Q )
